@@ -1,0 +1,108 @@
+project:
+  name: llm-unlearning-recovery
+  seed: 42
+  core_checkpoint_count: 24
+
+dataset:
+  repository: locuslab/TOFU
+  forget_split: forget10
+  retain_split: retain90
+  expected_forget_rows: 400
+  expected_retain_rows: 3600
+  expected_forget_authors: 20
+  part_a_authors: 10
+  part_b_authors: 10
+
+models:
+  architecture: Llama-3.2-1B-Instruct
+  original: open-unlearning/tofu_Llama-3.2-1B-Instruct_full
+  control: open-unlearning/tofu_Llama-3.2-1B-Instruct_retain90
+  organization: open-unlearning
+  checkpoint_prefix: unlearn_tofu_Llama-3.2-1B-Instruct_forget10
+
+experiment:
+  methods:
+    - GradDiff
+    - NPO
+    - SimNPO
+    - RMU
+  configurations_per_method: 6
+  precision: fp16
+  process_one_checkpoint_at_a_time: true
+  save_after_each_condition: true
+
+conditions:
+  baseline:
+    code: C0
+  relearning_low:
+    code: C1-low
+    samples: 20
+    epochs: 1
+  relearning_high:
+    code: C1-high
+    samples: 40
+    epochs: 3
+  quantization:
+    code: C2
+    bits: 4
+    method: round_to_nearest_fake_quantization
+    keep_embeddings_fp16: true
+    keep_output_head_fp16: true
+  paraphrase:
+    code: C3
+    evaluation_rows: 200
+    manual_quality_check_fraction: 0.10
+  mixed_prompt:
+    code: C4
+    evaluate_both_orders: true
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  learning_rate: 0.0002
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  max_length: 512
+  seed: 42
+
+generation:
+  do_sample: false
+  temperature: 0.0
+  max_new_tokens: 128
+
+metrics:
+  memory:
+    - answer_probability
+    - rouge_l
+    - truth_ratio
+    - extraction_strength
+    - exact_memorization
+    - min_k_percent
+    - token_entropy
+  utility:
+    - model_utility
+
+thresholds:
+  forgotten_k: 0.10
+  minimum_utility_retention: 0.90
+  primary_recovery_g: 0.50
+  recovery_sensitivity:
+    - 0.25
+    - 0.50
+    - 0.75
+  forgetting_sensitivity:
+    - 0.05
+    - 0.10
+    - 0.20
+  utility_sensitivity:
+    - 0.85
+    - 0.90
+    - 0.95
+  denominator_warning_epsilon: 0.000001
+
+outputs:
+  question_level: results/per_question/question_level_results.csv
+  checkpoint_level: results/per_checkpoint/checkpoint_summary.csv
+  ablations: results/ablations/ablation_results.csv
+  run_log: logs/run_log.csv
