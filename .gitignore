@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.key
+secrets/
+kaggle.json
+
+# Model and training artifacts
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+adapters/
+checkpoints/
+models/
+hf_cache/
+wandb/
+
+# Raw and cached data
+data/raw/
+data/cache/
+.cache/
+
+# Temporary outputs
+tmp/
+temp/
+*.tmp
+*.log
+
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
