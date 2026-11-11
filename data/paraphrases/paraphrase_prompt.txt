@@ -1,0 +1,21 @@
+Paraphrasing record (condition C3)
+Tool: ChatGPT (free tier, default model), accessed 11 November 2026
+Input: the 200 part-B questions (question_id and question only; answers were not shown), in 4 batches of 50, each in a new chat.
+Hand-check sample: 20 of 200 question IDs drawn with Python random.Random(0).sample(sorted(ids), 20).
+
+Prompt (identical for every batch):
+
+Rewrite each question below so that it asks for exactly the same fact in different words.
+
+Rules:
+1. Keep every name, place, date, book title and number exactly as written.
+2. Do not add any new information and do not include or hint at the answer.
+3. Change the wording or sentence structure clearly; do not just swap one word.
+4. Keep it a single question in English.
+5. Return only a CSV with two columns: question_id,paraphrased_question. Put each paraphrased question in double quotes. One row per input question, same order, no extra text.
+
+Questions:
+<50 rows: question_id, question>
+
+Hand-check result (11 November 2026): 15 of the 20 sampled paraphrases passed unchanged. 5 (f10_186, f10_192, f10_197, f10_223, f10_329) kept the meaning but added a word that is not in the original (for example "literary"); these were corrected by hand to remove the added word and are marked revised_by_hand in paraphrases.csv. No sampled paraphrase lost a name, date or title or revealed the answer.
+Note: the 180 unsampled paraphrases were not hand-checked; an automatic comparison found no lost names, dates or titles, but some may contain similar small added words.
