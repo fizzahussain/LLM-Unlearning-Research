@@ -1,6 +1,6 @@
 project:
   name: llm-unlearning-recovery
-  seed: 42
+  seed: 0
   core_checkpoint_count: 24
 
 dataset:
@@ -45,6 +45,8 @@ conditions:
   quantization:
     code: C2
     bits: 4
+    group_size: 64
+    symmetric: true
     method: round_to_nearest_fake_quantization
     keep_embeddings_fp16: true
     keep_output_head_fp16: true
@@ -64,7 +66,7 @@ lora:
   batch_size: 4
   gradient_accumulation_steps: 4
   max_length: 512
-  seed: 42
+  seed: 0
 
 generation:
   do_sample: false
