@@ -26,14 +26,14 @@ a = p.parse_args()
 cfg = yaml.safe_load(open("configs/experiment_config.yaml"))
 SEED = cfg["project"]["seed"]
 assert SEED == 0, "config seed must be 0 (submitted document); fix configs/experiment_config.yaml"
-c2 = cfg["conditions"]["C2"]
+c2 = cfg["conditions"].get("C2") or cfg["conditions"]["quantization"]   # v2: repo config names this block "quantization"
 GS = c2.get("group_size")
 assert GS, "add group_size (and symmetric: true/false) under conditions.C2 from paper [11] section 4.2"
 SYM = bool(c2.get("symmetric", False))
 L = cfg["lora"]; MAXLEN = L["max_length"]
 GEN = cfg["generation"]
 CFG_HASH = hashlib.md5(open("configs/experiment_config.yaml","rb").read()).hexdigest()[:8]
-NB_VERSION = "run_checkpoints.py-v1"
+NB_VERSION = "run_checkpoints.py-v2"
 dev = "cuda"
 gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
 os.makedirs("results/per_question", exist_ok=True); os.makedirs("logs", exist_ok=True)
@@ -64,6 +64,15 @@ def build_mixed():
     d = pd.DataFrame(rows); d.to_csv(path, index=False); return d
 M = build_mixed()
 
+# v2: Truth Ratio needs TOFU's paraphrased and perturbed (wrong) answers for each forget question.
+try:
+    from datasets import load_dataset
+    PT = load_dataset("locuslab/TOFU", "forget10_perturbed")["train"].to_pandas().drop_duplicates("question").set_index("question")
+    print("forget10_perturbed columns:", list(PT.columns))
+    print("Truth Ratio data loaded:", len(PT), "rows; part-B questions found:", int(B.question.isin(PT.index).sum()), "of", len(B))
+except Exception as e:
+    PT = None; print("WARNING: Truth Ratio data not loaded, truth_ratio will be skipped:", repr(e))
+
 # ---------- model helpers ----------
 def load(model_id, tok_id="open-unlearning/tofu_Llama-3.2-1B-Instruct_full"):
     tok = AutoTokenizer.from_pretrained(tok_id, token=os.environ.get("HF_TOKEN"))
@@ -73,8 +82,14 @@ def load(model_id, tok_id="open-unlearning/tofu_Llama-3.2-1B-Instruct_full"):
             token=os.environ.get("HF_TOKEN")).to(dev).eval()
     return tok, m
 
+# v2: same prompt format as OpenUnlearning (configs/model/Llama-3.2-1B-Instruct.yaml):
+# system prompt "You are a helpful assistant." and a FIXED date string, so runs on different days are identical.
+SYSTEM_PROMPT = "You are a helpful assistant."
+DATE_STRING = "10 Apr 2025"
 def prompt_ids(tok, q):
-    return tok.apply_chat_template([{"role": "user", "content": q}], add_generation_prompt=True, tokenize=True)
+    msgs = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": q}]
+    ids = tok.apply_chat_template(msgs, add_generation_prompt=True, tokenize=True, date_string=DATE_STRING)
+    return list(ids["input_ids"]) if hasattr(ids, "keys") else list(ids)
 
 def encode_qa(tok, q, ans):
     pi = prompt_ids(tok, q); ai = tok(ans + tok.eos_token, add_special_tokens=False).input_ids
@@ -102,14 +117,14 @@ def tf_metrics(tok, m, qs, ans):
     return out
 
 @torch.no_grad()
-def generate(tok, m, prompts, bs=16):
+def generate(tok, m, prompts, bs=16, max_new=None):
     outs = []
     for i in range(0, len(prompts), bs):
         enc = [prompt_ids(tok, q) for q in prompts[i:i + bs]]
         w = max(map(len, enc))
         ids = torch.tensor([[tok.pad_token_id] * (w - len(e)) + e for e in enc], device=dev)
         att = torch.tensor([[0] * (w - len(e)) + [1] * len(e) for e in enc], device=dev)
-        g = m.generate(input_ids=ids, attention_mask=att, max_new_tokens=GEN["max_new_tokens"],
+        g = m.generate(input_ids=ids, attention_mask=att, max_new_tokens=max_new or GEN["max_new_tokens"],
                        do_sample=False, pad_token_id=tok.pad_token_id)
         outs += tok.batch_decode(g[:, w:], skip_special_tokens=True)
     return outs
@@ -125,6 +140,18 @@ def evaluate(tok, m, df, qcol="question", acol="answer"):
     gens = generate(tok, m, qs)
     res = {k: [t[k] for t in tf] for k in tf[0]}
     res["rouge_l"] = [rl(r, g) for r, g in zip(ans, gens)]
+    if PT is not None:
+        # Truth Ratio (TOFU): mean probability of the wrong answers / probability of the paraphrased correct answer.
+        # Lower = the model prefers the correct answer = more knowledge. Direction is handled in the analysis.
+        keys = df["original_question"].tolist() if "original_question" in df.columns else qs
+        tr = []
+        for q, k in zip(qs, keys):
+            if k not in PT.index: tr.append(float("nan")); continue
+            para = PT.loc[k, "paraphrased_answer"]; perts = list(PT.loc[k, "perturbed_answer"])
+            p_para = tf_metrics(tok, m, [q], [para])[0]["answer_probability"]
+            p_pert = float(np.mean([x["answer_probability"] for x in tf_metrics(tok, m, [q] * len(perts), perts)]))
+            tr.append(p_pert / max(p_para, 1e-12))
+        res["truth_ratio"] = tr
     return res
 
 def utility(tok, m):
@@ -217,7 +244,7 @@ def run_condition(ck, meta, cond):
             parts = []
             for order in ["forget_first", "retain_first"]:
                 d = M[M.prompt_order == order]
-                g = generate(tok, m, d.prompt.tolist())
+                g = generate(tok, m, d.prompt.tolist(), max_new=2 * GEN["max_new_tokens"])   # v2: two answers need twice the room
                 res = {"rouge_l": [rl(r, x) for r, x in zip(d.forget_answer, g)]}
                 parts.append(rows_for(cond, "mixed", ck, meta, d, res, order=order, secs=time.time() - s))
             out = pd.concat(parts)
@@ -243,3 +270,6 @@ for ck, meta in jobs:
     t_ck = time.time()
     for cond in a.conditions.split(","): run_condition(ck, meta, cond)
     print(f"=== {ck.split('/')[-1]} done in {(time.time()-t_ck)/60:.1f} min ===")
+    if "unlearn_tofu" in ck:   # v2: free about 2.5 GB per finished checkpoint so the disk does not fill up
+        import shutil
+        shutil.rmtree(os.path.expanduser("~/.cache/huggingface/hub/models--" + ck.replace("/", "--")), ignore_errors=True)
