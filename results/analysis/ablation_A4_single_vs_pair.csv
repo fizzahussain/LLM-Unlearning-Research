@@ -1,0 +1,22 @@
+predictor,kind,spearman,abs_spearman
+truth_ratio,single,-0.6701540958959069,0.6701540958959069
+answer_probability + truth_ratio,mean of two,-0.6547826086956522,0.6547826086956522
+extraction_strength + truth_ratio,mean of two,-0.6231508017153903,0.6231508017153903
+rouge_l + truth_ratio,mean of two,-0.5817391304347826,0.5817391304347826
+exact_memorization + truth_ratio,mean of two,-0.34521739130434775,0.34521739130434775
+truth_ratio + min_k_percent,mean of two,-0.20347826086956516,0.20347826086956516
+min_k_percent,single,0.10173913043478258,0.10173913043478258
+answer_probability + min_k_percent,mean of two,0.06782608695652173,0.06782608695652173
+extraction_strength + min_k_percent,mean of two,0.06173913043478261,0.06173913043478261
+rouge_l + min_k_percent,mean of two,0.05130434782608695,0.05130434782608695
+extraction_strength,single,0.04793039697565003,0.04793039697565003
+exact_memorization + rouge_l,mean of two,0.046956521739130425,0.046956521739130425
+answer_probability + extraction_strength,mean of two,0.041739130434782605,0.041739130434782605
+answer_probability,single,0.04,0.04
+extraction_strength + exact_memorization,mean of two,0.03739130434782608,0.03739130434782608
+exact_memorization + min_k_percent,mean of two,0.034782608695652174,0.034782608695652174
+exact_memorization,single,0.034782608695652174,0.034782608695652174
+answer_probability + exact_memorization,mean of two,0.02608695652173913,0.02608695652173913
+answer_probability + rouge_l,mean of two,-0.009565217391304347,0.009565217391304347
+extraction_strength + rouge_l,mean of two,0.003478260869565217,0.003478260869565217
+rouge_l,single,-0.0017391304347826085,0.0017391304347826085

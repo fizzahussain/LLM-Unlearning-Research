@@ -1,0 +1,26 @@
+test,outcome,pair,n,stat,p,p_holm,b,c
+Cochran Q,"flip, answer probability (K-forgotten checkpoints)",,13,9.923076923076923,0.01923145527062542,,,
+McNemar exact,"flip, answer probability (K-forgotten checkpoints)",C1-low vs C1-high,13,,0.125,0.75,0.0,4.0
+McNemar exact,"flip, answer probability (K-forgotten checkpoints)",C1-low vs C2,13,,1.0,1.0,0.0,1.0
+McNemar exact,"flip, answer probability (K-forgotten checkpoints)",C1-low vs C3,13,,1.0,1.0,0.0,0.0
+McNemar exact,"flip, answer probability (K-forgotten checkpoints)",C1-high vs C2,13,,0.25,1.0,3.0,0.0
+McNemar exact,"flip, answer probability (K-forgotten checkpoints)",C1-high vs C3,13,,0.125,0.75,4.0,0.0
+McNemar exact,"flip, answer probability (K-forgotten checkpoints)",C2 vs C3,13,,1.0,1.0,1.0,0.0
+Cochran Q,"flip, ROUGE-L (K-forgotten checkpoints)",,17,15.636363636363637,0.0035480181021479984,,,
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C1-low vs C1-high,17,,0.125,1.0,0.0,4.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C1-low vs C2,17,,1.0,1.0,1.0,0.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C1-low vs C3,17,,1.0,1.0,1.0,0.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C1-low vs C4,17,,1.0,1.0,0.0,0.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C1-high vs C2,17,,0.0625,0.625,5.0,0.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C1-high vs C3,17,,0.0625,0.625,5.0,0.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C1-high vs C4,17,,0.125,1.0,4.0,0.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C2 vs C3,17,,1.0,1.0,0.0,0.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C2 vs C4,17,,1.0,1.0,0.0,1.0
+McNemar exact,"flip, ROUGE-L (K-forgotten checkpoints)",C3 vs C4,17,,1.0,1.0,0.0,1.0
+Cochran Q,"recovered G>=0.5, answer probability (all checkpoints)",,24,12.0,0.007383160505359809,,,
+McNemar exact,"recovered G>=0.5, answer probability (all checkpoints)",C1-low vs C1-high,24,,0.125,0.75,0.0,4.0
+McNemar exact,"recovered G>=0.5, answer probability (all checkpoints)",C1-low vs C2,24,,1.0,1.0,0.0,0.0
+McNemar exact,"recovered G>=0.5, answer probability (all checkpoints)",C1-low vs C3,24,,1.0,1.0,0.0,0.0
+McNemar exact,"recovered G>=0.5, answer probability (all checkpoints)",C1-high vs C2,24,,0.125,0.75,4.0,0.0
+McNemar exact,"recovered G>=0.5, answer probability (all checkpoints)",C1-high vs C3,24,,0.125,0.75,4.0,0.0
+McNemar exact,"recovered G>=0.5, answer probability (all checkpoints)",C2 vs C3,24,,1.0,1.0,0.0,0.0

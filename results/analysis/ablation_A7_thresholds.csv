@@ -1,0 +1,13 @@
+K_threshold,utility_floor,n_forgotten,forgotten,flips_C1-low,flips_C1-high,flips_C2,flips_C3
+0.05,none,13,GradDiff_01 GradDiff_02 GradDiff_03 GradDiff_04 GradDiff_05 GradDiff_06 NPO_01 NPO_03 NPO_05 RMU_03 RMU_06 SimNPO_05 SimNPO_06,0,5,1,0
+0.05,0.85,2,GradDiff_05 SimNPO_06,0,0,0,0
+0.05,0.9,0,,0,0,0,0
+0.05,0.95,0,,0,0,0,0
+0.1,none,13,GradDiff_01 GradDiff_02 GradDiff_03 GradDiff_04 GradDiff_05 GradDiff_06 NPO_01 NPO_03 NPO_05 RMU_03 RMU_06 SimNPO_05 SimNPO_06,0,4,1,0
+0.1,0.85,2,GradDiff_05 SimNPO_06,0,0,0,0
+0.1,0.9,0,,0,0,0,0
+0.1,0.95,0,,0,0,0,0
+0.2,none,14,GradDiff_01 GradDiff_02 GradDiff_03 GradDiff_04 GradDiff_05 GradDiff_06 NPO_01 NPO_03 NPO_05 RMU_03 RMU_06 SimNPO_04 SimNPO_05 SimNPO_06,0,5,1,0
+0.2,0.85,3,GradDiff_05 SimNPO_04 SimNPO_06,0,1,0,0
+0.2,0.9,1,SimNPO_04,0,1,0,0
+0.2,0.95,1,SimNPO_04,0,1,0,0

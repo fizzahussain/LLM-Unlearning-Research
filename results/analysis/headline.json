@@ -1,0 +1,26 @@
+{
+ "n_checkpoints": 24,
+ "original_utility": 0.8469180551638472,
+ "answer_probability": {
+  "original": 0.8734800812602043,
+  "control": 0.12258935791440305
+ },
+ "n_K_forgotten": 13,
+ "n_verdict_forgotten": 0,
+ "K_forgotten": [
+  "GradDiff_01",
+  "GradDiff_02",
+  "GradDiff_03",
+  "GradDiff_04",
+  "GradDiff_05",
+  "GradDiff_06",
+  "NPO_01",
+  "NPO_03",
+  "NPO_05",
+  "RMU_03",
+  "RMU_06",
+  "SimNPO_05",
+  "SimNPO_06"
+ ],
+ "max_utility_ratio_among_K_forgotten": 0.8900786121265476
+}
