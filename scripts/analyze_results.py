@@ -18,6 +18,7 @@ from scipy import stats
 ap = argparse.ArgumentParser()
 ap.add_argument("--inp", default="results/per_question")
 ap.add_argument("--out", default="results/analysis")
+ap.add_argument("--inp_a", default="results/per_question_partA", help="ablation A5: results evaluated on the part-A (relearning) authors")
 a = ap.parse_args()
 os.makedirs(a.out, exist_ok=True)
 RNG_SEED, NBOOT = 0, 10000
@@ -100,6 +101,18 @@ for m in MEM:
                    n_K_forgotten=int(x.forgotten_K.sum()), n_verdict_forgotten=int(x.forgotten_verdict.sum()),
                    checkpoints_K_forgotten=" ".join(x[x.forgotten_K].ck)))
 pd.DataFrame(bl).to_csv(f"{a.out}/baseline_verdicts.csv", index=False)
+
+# baseline evaluation by unlearning method: every metric before any condition (mean and range over 6 checkpoints)
+bm = []
+for me in METHODS:
+    for m in ALLM:
+        x = base[(base.metric == m) & (base.method == me)]
+        bm.append(dict(method=me, metric=m, mean=x.S_before.mean(), min=x.S_before.min(), max=x.S_before.max(),
+                       mean_K=x.K_before.mean(), n_K_forgotten=int(x.forgotten_K.sum())))
+    x = base[(base.metric == "answer_probability") & (base.method == me)]
+    bm.append(dict(method=me, metric="utility_ratio", mean=x.utility_ratio.mean(), min=x.utility_ratio.min(), max=x.utility_ratio.max(),
+                   mean_K=np.nan, n_K_forgotten=np.nan))
+pd.DataFrame(bm).to_csv(f"{a.out}/baseline_by_method.csv", index=False)
 
 # ---------------------------------------------------------------- SQ1: flip rates
 fr = []
@@ -185,6 +198,16 @@ for c in CONDS:
                          auroc_status="computed" if ok else "not computed (<5 in a class)"))
 PRED = pd.DataFrame(pred); PRED.to_csv(f"{a.out}/metric_predictiveness.csv", index=False)
 
+# paired bootstrap: is the difference in |Spearman| between two predictors different from zero? (C1-high)
+gh = T[(T.metric == "answer_probability") & (T.condition == "C1-high")].set_index("ck").G.reindex(pre.index).values
+pb = []
+for m1 in ("token_entropy", "truth_ratio"):
+    for m2 in ("answer_probability", "extraction_strength", "exact_memorization", "rouge_l", "min_k_percent"):
+        d0 = abs(stats.spearmanr(pre[m1], gh)[0]) - abs(stats.spearmanr(pre[m2], gh)[0])
+        ds = np.abs(boot_store[("C1-high", m1)]) - np.abs(boot_store[("C1-high", m2)]) if len(boot_store[("C1-high", m1)]) == len(boot_store[("C1-high", m2)]) else np.array([np.nan])
+        pb.append(dict(predictor_1=m1, predictor_2=m2, difference_abs_spearman=d0, ci_lo=np.nanpercentile(ds, 2.5), ci_hi=np.nanpercentile(ds, 97.5)))
+pd.DataFrame(pb).to_csv(f"{a.out}/paired_bootstrap_C1high.csv", index=False)
+
 # same analysis restricted to the K-forgotten checkpoints (answer probability), C1-high only
 fk = base[(base.metric == "answer_probability") & base.forgotten_K].ck
 g = T[(T.metric == "answer_probability") & (T.condition == "C1-high")].set_index("ck").G.reindex(fk)
@@ -269,8 +292,49 @@ for c in ["C1-low", "C1-high", "C2"]:
         it.append(dict(condition=c, predictor=m, n_items=len(I), n_recovered_items=int(y.sum()),
                        auroc=auroc(I[m].values, y.values), spearman=stats.spearmanr(I[m], I.Gq)[0]))
     I.to_csv(f"{a.out}/item_level_{c}.csv")
+# item-level recovery by part-B author under C1-high (failure analysis): all checkpoints, and the four that flipped
+auth = d.drop_duplicates("question_id").set_index("question_id").author
+Ih = pd.read_csv(f"{a.out}/item_level_C1-high.csv"); Ih["author"] = Ih.question_id.map(auth)
+flipped = list(T[(T.metric == "answer_probability") & (T.condition == "C1-high") & T.flip].ck)
+ba = pd.DataFrame({"mean_Gq_all_checkpoints": Ih.groupby("author").Gq.mean(),
+                   "share_items_recovered_all": Ih.groupby("author").Gq.apply(lambda v: (v >= G_THR).mean()),
+                   "mean_Gq_flipped_checkpoints": Ih[Ih.ck.isin(flipped)].groupby("author").Gq.mean(),
+                   "share_items_recovered_flipped": Ih[Ih.ck.isin(flipped)].groupby("author").Gq.apply(lambda v: (v >= G_THR).mean())})
+ba.to_csv(f"{a.out}/item_recovery_by_author_C1high.csv")
 IT = pd.DataFrame(it); IT["auroc_distance_from_chance"] = (IT.auroc - 0.5).abs()
 IT.to_csv(f"{a.out}/item_level_predictiveness.csv", index=False)
+
+# ---------------------------------------------------------------- ablation A5: evaluate on part A (relearning authors) instead of part B
+if glob.glob(os.path.join(a.inp_a, "*.csv")):
+    dA = pd.concat(pd.read_csv(f) for f in sorted(glob.glob(os.path.join(a.inp_a, "*.csv"))))
+    assert dA.config_hash.nunique() == 1 and dA.config_hash.iloc[0] == d.config_hash.iloc[0], "part-A runs used a different configuration"
+    dA["ck"] = dA.method + "_" + dA.config_id.astype(int).astype(str).str.zfill(2)
+    SA = dA[dA.metric_name == "answer_probability"].groupby(["ck", "condition"]).metric_value.mean().unstack()
+    oA, cA = SA.loc[O, "C0"], SA.loc[C, "C0"]; DA = oA - cA
+    a5 = []
+    for ck in cks:
+        for c in ("C1-low", "C1-high"):
+            kb = (SA.loc[ck, "C0"] - cA) / DA
+            ka = (SA.loc[ck, c] - cA) / DA
+            gA = ((SA.loc[ck, c] - SA.loc[ck, "C0"]) - (SA.loc[C, c] - cA)) / DA
+            rB = T[(T.ck == ck) & (T.metric == "answer_probability") & (T.condition == c)].iloc[0]
+            a5.append(dict(ck=ck, method=method_of[ck], condition=c, K_before_partA=kb, K_after_partA=ka, G_partA=gA,
+                           K_before_partB=rB.K_before, K_after_partB=rB.K_after, G_partB=rB.G))
+    A5 = pd.DataFrame(a5); A5.to_csv(f"{a.out}/ablation_A5_partA_vs_partB.csv", index=False)
+    s5 = []
+    for c in ("C1-low", "C1-high"):
+        x = A5[A5.condition == c]
+        for part in ("A", "B"):
+            f = x[f"K_before_part{part}"] <= K_THR; fl = f & (x[f"K_after_part{part}"] > K_THR)
+            lo, hi = wilson(int(fl.sum()), int(f.sum()))
+            s5.append(dict(condition=c, evaluated_on="part " + part, n_K_forgotten=int(f.sum()), n_flipped=int(fl.sum()),
+                           flip_rate=fl.sum() / f.sum(), wilson_lo=lo, wilson_hi=hi,
+                           n_recovered=int((x[f"G_part{part}"] >= G_THR).sum()), mean_G=x[f"G_part{part}"].mean(),
+                           flipped=" ".join(x[fl].ck), recovered=" ".join(x[x[f"G_part{part}"] >= G_THR].ck)))
+        s5[-1]["spearman_G_partA_vs_partB"] = stats.spearmanr(x.G_partA, x.G_partB)[0]
+    pd.DataFrame(s5).to_csv(f"{a.out}/ablation_A5_summary.csv", index=False)
+    pd.DataFrame([dict(model="original", C0=oA, C1_low=SA.loc[O, "C1-low"], C1_high=SA.loc[O, "C1-high"]),
+                  dict(model="control", C0=cA, C1_low=SA.loc[C, "C1-low"], C1_high=SA.loc[C, "C1-high"])]).to_csv(f"{a.out}/ablation_A5_reference_models.csv", index=False)
 
 # ---------------------------------------------------------------- compact json of headline numbers
 b = base[base.metric == "answer_probability"].set_index("ck")

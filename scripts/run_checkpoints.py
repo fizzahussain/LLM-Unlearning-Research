@@ -21,6 +21,9 @@ p.add_argument("--controls", action="store_true")
 p.add_argument("--operator", default="member_2")
 p.add_argument("--conditions", default="C0,C1-low,C1-high,C2,C3,C4")
 p.add_argument("--limit", type=int, default=None, help="debug: only first N questions")
+p.add_argument("--eval-part", default="B", choices=["A", "B"],
+               help="v3 (ablation A5): which forget authors to evaluate on. B = held-out authors (main study). "
+                    "A = the authors used for relearning; results go to results/per_question_partA/")
 a = p.parse_args()
 
 cfg = yaml.safe_load(open("configs/experiment_config.yaml"))
@@ -33,10 +36,11 @@ SYM = bool(c2.get("symmetric", False))
 L = cfg["lora"]; MAXLEN = L["max_length"]
 GEN = cfg["generation"]
 CFG_HASH = hashlib.md5(open("configs/experiment_config.yaml","rb").read()).hexdigest()[:8]
-NB_VERSION = "run_checkpoints.py-v2"
+NB_VERSION = "run_checkpoints.py-v2" if a.eval_part == "B" else "run_checkpoints.py-v3-partA"   # v3 only adds --eval-part; part-B behaviour is unchanged
 dev = "cuda"
 gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
-os.makedirs("results/per_question", exist_ok=True); os.makedirs("logs", exist_ok=True)
+OUT_DIR = "results/per_question" if a.eval_part == "B" else "results/per_question_partA"
+os.makedirs(OUT_DIR, exist_ok=True); os.makedirs("logs", exist_ok=True)
 
 def seed_all(s):
     random.seed(s); np.random.seed(s); torch.manual_seed(s); torch.cuda.manual_seed_all(s)
@@ -63,6 +67,9 @@ def build_mixed():
                 forget_answer=f.answer, retain_question_id=rq.question_id, retain_answer=rq.answer))
     d = pd.DataFrame(rows); d.to_csv(path, index=False); return d
 M = build_mixed()
+EVAL = B if a.eval_part == "B" else A     # v3: question set used for C0, C1 and C2
+if a.eval_part == "A":
+    assert set(a.conditions.split(",")) <= {"C0", "C1-low", "C1-high", "C2"}, "part A evaluation supports C0, C1-low, C1-high, C2 only"
 
 # v2: Truth Ratio needs TOFU's paraphrased and perturbed (wrong) answers for each forget question.
 try:
@@ -224,7 +231,7 @@ def log(ck, cond, t0, status, err="", reason=""):
 
 def run_condition(ck, meta, cond):
     tag = f"{meta['method']}_{int(meta['config']):02d}_{cond}_{a.operator.replace('_','-')}"
-    path = f"results/per_question/{tag}.csv"
+    path = f"{OUT_DIR}/{tag}.csv"
     if os.path.exists(path): print("skip (done)", tag); return
     t0 = datetime.datetime.utcnow(); s = time.time()
     try:
@@ -234,7 +241,7 @@ def run_condition(ck, meta, cond):
         if cond == "C1-high": m = lora_relearn(tok, m, 40, 3); strength = "40x3"
         if cond == "C2": m = rtn_fake_quant(m); strength = f"rtn4_g{GS}"
         if cond in ("C0", "C1-low", "C1-high", "C2"):
-            res = evaluate(tok, m, B); df = B
+            res = evaluate(tok, m, EVAL); df = EVAL
             u = utility(tok, m); out = rows_for(cond, strength, ck, meta, df, res, secs=time.time() - s, util=u)
         elif cond == "C3":
             d = Pm.rename(columns={"paraphrased_question": "question", "reference_answer": "answer"})

@@ -1,169 +1,101 @@
-# LLM Unlearning Research
+# Machine Unlearning in Large Language Models: Distinguishing Genuine Forgetting from Reversible Suppression
 
-## Distinguishing Genuine Forgetting from Reversible Suppression
+Data Analysis and Visualization research project (Phases 1 to 3), FAST-NUCES Islamabad.
 
-This repository contains the implementation and experimental evaluation for a Data Analysis and Visualization research project on large language model unlearning.
+**Authors:** Hifsa Khattak (24i-2511) and Fizza Hussain (24i-2621)
 
-The study investigates whether models that appear to have forgotten selected information have genuinely removed that information or have only suppressed access to it under standard evaluation.
+The Phase 3 paper is in [`paper/Phase3_Paper_Hifsa_Fizza.pdf`](paper/Phase3_Paper_Hifsa_Fizza.pdf).
 
 ## Research question
 
-> When an unlearned language model appears to forget information, does that information remain inaccessible under relearning, quantization, paraphrased questions, and mixed-prompt evaluation?
+> Under what evaluation conditions can apparent LLM forgetting be reliably distinguished from reversible information suppression?
 
-The project evaluates whether common unlearning metrics predict later recovery and whether different recovery conditions produce consistent conclusions.
+- **SQ1.** For the same unlearned models, what fraction of models judged "forgotten" recover the knowledge under each condition?
+- **SQ2.** How well does each pre-attack metric predict post-attack recovery, measured by Spearman correlation and AUROC?
+- **SQ3.** Do these answers change across unlearning methods and hyperparameter configurations?
 
-## Core experimental scope
+## What was done
 
-- **Dataset:** TOFU forget10 and retain90
-- **Architecture:** Llama-3.2-1B-Instruct
-- **Unlearning methods:** GradDiff, NPO, SimNPO, and RMU
-- **Released configurations:** 6 per method
-- **Core checkpoints:** 24
-- **Forget-set split:** 10 authors for relearning and 10 unseen authors for evaluation
-- **Recovery conditions:** LoRA relearning, fake 4-bit quantization, paraphrased questions, and mixed prompts
-- **Primary analysis:** normalized residual knowledge, recovery gain, utility retention, and verdict-flip rate
+24 released OpenUnlearning checkpoints of Llama-3.2-1B-Instruct unlearned on TOFU forget10 (GradDiff, NPO, SimNPO, RMU; six configurations each) were evaluated before and after five condition settings. Nothing was unlearned by us; the only training is the small LoRA relearning attack.
 
-The unlearned checkpoints are evaluated rather than trained from scratch. Training is limited to small LoRA relearning attacks used to test recoverability.
-
-## Data and model sources
-
-- [TOFU dataset](https://huggingface.co/datasets/locuslab/TOFU)
-- [OpenUnlearning repository](https://github.com/locuslab/open-unlearning)
-- [OpenUnlearning TOFU checkpoint collection](https://huggingface.co/collections/open-unlearning/tofu-unlearned-models)
-- [OpenUnlearning Hugging Face organization](https://huggingface.co/open-unlearning)
-
-Raw datasets and model weights are downloaded at runtime and are not committed to this repository.
-
-## Experimental design
-
-### Data split
-
-The TOFU forget10 split contains 20 fictitious authors and 400 question-answer pairs. Authors are divided before model evaluation:
-
-- **Part A:** 10 authors and 200 questions for relearning
-- **Part B:** 10 different authors and 200 questions for recovery evaluation
-
-The author split is frozen in a versioned manifest. Questions from one author must never appear in both parts.
-
-### Experimental conditions
-
-| Code | Condition | Purpose |
+| Code | Condition | Setting |
 |---|---|---|
-| C0 | Original prompt evaluation | Measure pre-attack forgetting |
-| C1-Low | LoRA relearning using 20 samples for 1 epoch | Test low-budget recovery |
-| C1-High | LoRA relearning using 40 samples for 3 epochs | Test stronger recovery |
-| C2 | Fake 4-bit round-to-nearest quantization | Test recovery caused by weight transformation |
-| C3 | Paraphrased Part B questions | Test prompt-surface robustness |
-| C4 | Mixed forget and retain prompts in both orders | Test contextual recovery and prompt-order effects |
+| C0 | No condition | 200 questions about 10 held-out forget authors (part B) |
+| C1-low | Relearning, low budget | LoRA rank 8, 20 examples from 10 other forget authors (part A), 1 epoch |
+| C1-high | Relearning, high budget | LoRA rank 8, 40 part-A examples, 3 epochs |
+| C2 | Quantization | Simulated 4-bit round-to-nearest, group size 64 |
+| C3 | Paraphrased questions | The 200 part-B questions, rewritten |
+| C4 | Mixed prompts | Part-B question combined with a retain question, both orders |
 
-### Main measures
+Every condition is also applied to the original model and to a retain-only control model that never saw the forget authors.
 
-Normalized residual knowledge is calculated for every metric and condition:
+- Residual knowledge: `K = (S_model - S_control) / (S_original - S_control)`; "K-forgotten" means `K <= 0.10`.
+- Control-adjusted recovery: `G = [(S_after - S_before) - (S_control_after - S_control_before)] / (S_original - S_control)`; "recovered" means `G >= 0.50`.
 
-```text
-K = (S_model - S_control) / (S_original - S_control)
-```
+## Main results
 
-A checkpoint is treated as forgotten under the primary rule when:
+- No checkpoint is forgotten (`K <= 0.10`) while keeping at least 90% of the original model's utility. 13 of 24 are K-forgotten.
+- Of those 13, high-budget relearning overturns the verdict for 4 (30.8%, Wilson 95% interval 12.7 to 57.6%), quantization for 1, and low-budget relearning and paraphrasing for none. Mixed prompts: 1 of 17 by ROUGE-L.
+- Standard memorization metrics measured before the condition do not predict relearning recovery across checkpoints (Spearman 0.00 to 0.10). Token entropy (-0.74) and Truth Ratio (-0.67) do.
+- Recovery is concentrated in RMU and depends strongly on the configuration.
+- Recovery on the held-out authors is as large as on the relearning authors (ablation A5), so it is not memorisation of the relearning examples.
 
-```text
-K <= 0.10 and utility retention >= 0.90
-```
-
-Control-adjusted recovery gain is:
-
-```text
-G = ((S_after - S_before) - (S_control_after - S_control_before))
-    / (S_original - S_control)
-```
-
-The primary recovery threshold is `G >= 0.50`. Sensitivity analysis also uses 0.25 and 0.75.
-
-Denominators are computed separately for every metric and experimental condition.
+These results describe this pool of 24 checkpoints on one benchmark and one model size; intervals are wide. See the paper for limitations.
 
 ## Repository structure
 
-```text
-.
-├── .github/
-│   └── pull_request_template.md
-├── configs/
-│   └── experiment_config.yaml
-├── data/
-│   └── README.md
-├── figures/
-│   └── README.md
-├── logs/
-│   └── README.md
-├── manifests/
-│   └── checkpoint_manifest.csv
-├── notebooks/
-│   └── README.md
-├── results/
-│   └── README.md
-├── .gitignore
-├── CONTRIBUTING.md
-├── README.md
-└── requirements.txt
+```
+configs/experiment_config.yaml        settings used by the run script
+manifests/checkpoint_manifest.csv     the 24 checkpoints (frozen before any run)
+manifests/checkpoint_manifest_selected.csv   how they were selected (pool size and position)
+data/processed/                       author split (part A / part B), retain sample, mixed prompts
+data/paraphrases/                     200 paraphrased questions, prompt and review record
+scripts/run_checkpoints.py            runs all conditions for a checkpoint (needs a GPU)
+scripts/analyze_results.py            computes every table in the paper
+scripts/make_figures.py               draws every figure in the paper
+results/per_question/                 156 result files: 26 models x 6 settings, part B
+results/per_question_partA/           78 result files: ablation A5, part A
+results/analysis/                     tables produced by analyze_results.py
+figures/                              figures produced by make_figures.py
+logs/                                 run logs (one row per model and condition)
+paper/                                Phase 3 paper and the list of changes from Phase 2
 ```
 
-## Planned notebooks
+## How to reproduce
 
-1. **Environment and data validation**
-2. **Author split and prompt preparation**
-3. **Control and baseline evaluation**
-4. **Checkpoint recovery experiments**
-5. **Metric calculation and statistical analysis**
-6. **Ablations and visualizations**
+**Tables and figures (no GPU, about 3 minutes).** Requires Python with pandas, numpy, scipy and matplotlib.
 
-Notebook responsibilities and expected outputs are documented in [notebooks/README.md](notebooks/README.md).
+```
+python scripts/analyze_results.py
+python scripts/make_figures.py
+```
 
-## Two-member workflow
+**Model runs (Kaggle notebook, GPU T4, Internet on, a Hugging Face token saved as the secret `HF_TOKEN`).** About 11 minutes per checkpoint.
 
-The 24 checkpoints remain one experiment but are divided evenly for execution:
+```python
+import os
+from kaggle_secrets import UserSecretsClient
+os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
+!git clone -q https://github.com/fizzahussain/LLM-Unlearning-Research.git
+%cd LLM-Unlearning-Research
+!pip -q install -r requirements.txt
+!pip -q uninstall -y torchao
+!python -u scripts/run_checkpoints.py --controls --operator member_1      # original and control models
+!python -u scripts/run_checkpoints.py --rows 1-24 --operator member_1     # the 24 checkpoints
+# ablation A5 (evaluate on the relearning authors):
+!python -u scripts/run_checkpoints.py --controls --rows 1-24 --eval-part A --conditions C0,C1-low,C1-high
+```
 
-| Member | Assigned methods | Checkpoints |
-|---|---|---:|
-| Member 1 | GradDiff and NPO | 12 |
-| Member 2 | SimNPO and RMU | 12 |
+Use "Save Version > Save & Run All" so that Kaggle keeps the output files.
 
-Both members must use the same frozen manifests, prompts, configuration, metric definitions, and output schema. Every result row records the operator, configuration, notebook version, and checkpoint identifier.
+## Data and model sources
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for branch, review, and merge rules.
+- TOFU dataset: `locuslab/TOFU` on Hugging Face (splits `forget10`, `retain90`, `forget10_perturbed`).
+- Models: `open-unlearning/tofu_Llama-3.2-1B-Instruct_full` (original), `open-unlearning/tofu_Llama-3.2-1B-Instruct_retain90` (control), and the 24 `open-unlearning/unlearn_tofu_Llama-3.2-1B-Instruct_forget10_*` checkpoints listed in the manifest.
+- Framework reference: OpenUnlearning, https://github.com/locuslab/open-unlearning
 
-## Reproducibility rules
+Model weights and raw datasets are downloaded at run time and are not stored in this repository. Access tokens are never committed.
 
-1. Freeze the checkpoint manifest before running recovery experiments
-2. Select checkpoints without examining recovery outcomes
-3. Use an author-level split rather than a question-level random split
-4. Store generated paraphrases and their quality-review status
-5. Write result rows immediately after each condition
-6. Preserve per-question results before producing summaries
-7. Record software versions, GPU type, seed, runtime, and failures
-8. Never commit access tokens, model weights, raw caches, or private credentials
-9. Report unavailable checkpoints and reruns rather than silently replacing results
-10. State conclusions as applying under the tested conditions, not as proof of permanent deletion
+## Record of changes
 
-## Project status
-
-- [x] Research problem and literature review
-- [x] Phase 2 methodology design
-- [x] Repository initialization
-- [ ] Freeze 24-checkpoint manifest
-- [ ] Validate TOFU data
-- [ ] Freeze author-level split
-- [ ] Prepare paraphrased and mixed prompts
-- [ ] Complete one end-to-end pilot
-- [ ] Run 24-checkpoint experiment
-- [ ] Calculate baselines and ablations
-- [ ] Produce final figures
-- [ ] Complete Phase 3 report
-
-## Course information
-
-**Course:** Data Analysis and Visualization  
-**Project:** LLM Unlearning: Distinguishing Genuine Forgetting from Reversible Suppression
-
-## Citation and responsible use
-
-This repository is intended for reproducible academic evaluation. Cite TOFU, OpenUnlearning, the evaluated unlearning methods, and all comparative studies in the final paper. Follow the licenses and access requirements of the original datasets and model checkpoints.
+`paper/changes_from_phase2.md` lists every difference between the Phase 2 methodology and what was implemented, with the reason for each, and the run history.

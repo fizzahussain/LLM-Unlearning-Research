@@ -22,7 +22,7 @@ This file records every difference between the methodology submitted in Phase 2 
 | B4 | LoRA settings | Rank 8 (as submitted); alpha 16, dropout 0.05, learning rate 2e-4, batch size 4, gradient accumulation 4, attention projection layers only. | Phase 2 fixed only the rank and the two budgets. These values are our own choice, not taken from a paper. |
 | B5 | Prompt format | System prompt "You are a helpful assistant." and fixed date string "10 Apr 2025", as in the OpenUnlearning model configuration for Llama-3.2-1B-Instruct. | Keeps prompts identical across days and accounts and matches the framework that released the checkpoints. |
 | B6 | Mixed prompts (C4) | Each part-B question is paired with one retain question in the form "Answer both questions. 1. ... 2. ...", in both orders. The generation limit is doubled for C4. Only ROUGE-L is measured for C4. | Two answers need more room. Probability-based metrics are not defined for a two-question prompt in our script, so answer probability (the primary metric) is not available for C4. |
-| B7 | Quantization (C2) | 4-bit round-to-nearest, group size 64, symmetric. | TO CONFIRM: the sentence and section of paper [11] that these two values come from. If they are not stated there, they must be described as our own choice. |
+| B7 | Quantization (C2) | 4-bit round-to-nearest with the rounding rule of paper [11] (Section 3.1, Eq. 2), applied in groups of 64 weights. | Paper [11] states 4-bit RTN (Section 4.2) and the rounding rule, but no group size. The group size of 64 is our own choice. Phase 2 said the group size would be matched to [11]; that was not possible. |
 
 ## C. Items in Phase 2 that were changed or dropped
 
@@ -34,10 +34,13 @@ This file records every difference between the methodology submitted in Phase 2 
 | C4 | OpenUnlearning aggregate score as a baseline | Not computed. | Depends on C2. |
 | C5 | Paraphrase failures "are regenerated" | The 20 hand-checked paraphrases: 15 passed, 5 added a word not in the original and were corrected by hand, not regenerated. The other 180 were checked automatically only (no lost names, dates or titles; about 31 add the word "literary" or "literature"). | Recorded in `data/paraphrases/paraphrase_prompt.txt`. |
 | C6 | Estimated 30 to 90 minutes per checkpoint | Measured: about 11 minutes per checkpoint on a Kaggle T4 (script version 2). | The full core set of 24 checkpoints was kept. |
-| C7 | Ablation A5 (evaluate on part A) | Not run. | The run script evaluates part B only. |
+| C7 | Ablation A5 (evaluate on part A) | Run on 13 November 2026 as a separate run (26 models x C0, C1-low, C1-high on the 200 part-A questions; 78 runs, all ok), using the option `--eval-part A` added to the run script (version 3). The part-B procedure is unchanged. | The first versions of the run script evaluated part B only. |
 | C8 | Recovery curves over relearning steps | Not produced. | Only the final relearned model is evaluated. |
 | C9 | Reading generated outputs by question type (Step 11) | Not done. | The run script saved scores, not generated text. |
 | C10 | Verdict-flip rate | No checkpoint met the full verdict (K <= 0.10 and utility >= 90%), so flip rates are reported for the 13 checkpoints with K <= 0.10 only. | This is the Phase 2 definition of the flip rate (Table 7). |
+| C14 | Figures | Colour added (colour-blind-safe palette plus marker shapes). | Readability. |
+| C12 | Heatmap of AUROC | Heatmap of Spearman correlation. | Checkpoint-level AUROC could not be computed (4 recovered checkpoints, below the pre-set minimum of 5). |
+| C13 | Over-refusal analysis on retain questions | Not done. | Generated text was not saved. |
 | C11 | Truth Ratio aggregation | Median over questions instead of mean. | The per-question ratio has extreme values. |
 
 ## D. Run history
@@ -48,7 +51,8 @@ This file records every difference between the methodology submitted in Phase 2 
 | 12 Nov 2026 | Controls and rows 1 to 12 rerun (Fizza), 84 runs, all ok | v2 | Yes |
 | 12 Nov 2026 | Rows 13 to 24 (Hifsa), interactive session; files lost when the session ended | v2 | No |
 | 13 Nov 2026 | Rows 13 to 24 rerun (Hifsa), background version, 72 runs, all ok | v2 | Yes |
+| 13 Nov 2026 | Ablation A5: all 26 models on part A (Hifsa), 78 runs, all ok | v3 (adds `--eval-part`; same configuration hash) | Yes (Section 7, Figure 9) |
 
 ## E. Feedback from class
 
-TO FILL: write down any feedback the instructor gave on the Phase 2 methodology, and what was changed because of it.
+Written feedback on Phase 2 had not been received by 13 November 2026. The Phase 1 feedback (no names; no reference list or venues; mismatch between paper [10] in the summary and row 10 of the table; gaps generic and lightly evidenced) was addressed in Phase 2 and carried into Phase 3; see Table 2 of the paper.
