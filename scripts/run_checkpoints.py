@@ -17,7 +17,9 @@ v4 (Phase 4) adds three options; the default behaviour is unchanged:
     --out-dir, --log   write results / the run log somewhere else (used for the self-test)
 v5 adds one option; all earlier behaviour is unchanged:
     --general-utility  before any condition, measure answer probability and ROUGE-L on TOFU's
-                       real_authors and world_facts splits (general knowledge); results/general_utility/
+                       real_authors and world_facts splits (general knowledge) and on the fixed
+                       200-question retain sample; results/general_utility/. With --save-text the
+                       generated answers are also saved to results/generations_general/
 """
 import argparse, os, sys, time, json, hashlib, datetime, gc, random, subprocess
 import numpy as np, pandas as pd, torch, yaml
@@ -56,10 +58,10 @@ if a.relearn_seed is not None:
     assert set(a.conditions.split(",")) <= {"C1-low", "C1-high"}, "--relearn-seed is for C1-low and C1-high only (C0 does not depend on the seed)"
 elif a.eval_part == "A":
     NB_VERSION = "run_checkpoints.py-v3-partA"
-elif a.save_text:
-    NB_VERSION = "run_checkpoints.py-v4-text"
 elif a.general_utility:
     NB_VERSION = "run_checkpoints.py-v5-general-utility"
+elif a.save_text:
+    NB_VERSION = "run_checkpoints.py-v4-text"
 else:
     NB_VERSION = "run_checkpoints.py-v2"   # v3 and v4 options are off: identical to the main experiment
 dev = "cuda"
@@ -306,14 +308,22 @@ def run_general_utility(ck, meta):
     try:
         from datasets import load_dataset
         tok, m = load(ck); parts = []
-        for split, pre in [("real_authors", "ra"), ("world_facts", "wf")]:
-            d = load_dataset("locuslab/TOFU", split)["train"].to_pandas()
-            assert {"question", "answer"} <= set(d.columns), f"{split} columns: {list(d.columns)}"
-            if a.limit: d = d.head(a.limit)
-            d = d.reset_index(drop=True); d["question_id"] = [f"{pre}_{i:03d}" for i in range(len(d))]; d["author_index"] = split
+        for split, pre in [("real_authors", "ra"), ("world_facts", "wf"), ("retain_sample", None)]:
+            if pre is None:
+                d = R.copy()          # the fixed 200 retain questions (already limited by --limit)
+            else:
+                d = load_dataset("locuslab/TOFU", split)["train"].to_pandas()
+                assert {"question", "answer"} <= set(d.columns), f"{split} columns: {list(d.columns)}"
+                if a.limit: d = d.head(a.limit)
+                d = d.reset_index(drop=True); d["question_id"] = [f"{pre}_{i:03d}" for i in range(len(d))]
+            d["author_index"] = split
             tf = tf_metrics(tok, m, d.question.tolist(), d.answer.tolist())
             g = generate(tok, m, d.question.tolist())
             res = {"answer_probability": [x["answer_probability"] for x in tf], "rouge_l": [rl(r, h) for r, h in zip(d.answer, g)]}
+            if a.save_text:
+                gdir = "results/generations_general"; os.makedirs(gdir, exist_ok=True)
+                pd.DataFrame(dict(checkpoint_id=ck, split=split, question_id=d.question_id, question=d.question,
+                                  reference_answer=d.answer, generated_answer=g)).to_csv(f"{gdir}/{tag}_{split}.csv", index=False)
             parts.append(rows_for("C0", split, ck, meta, d, res, secs=time.time() - s))
         pd.concat(parts).to_csv(path, index=False); log(ck, "GU", t0, "ok")
         print(f"{tag}: {time.time()-s:.0f}s")
