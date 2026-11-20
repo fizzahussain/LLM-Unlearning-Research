@@ -9,6 +9,12 @@ Usage (Kaggle cell, repo is the current directory):
     !python run_checkpoints.py --rows 13-24        # your 12 checkpoints
     !python run_checkpoints.py --controls          # original + retain90 control
 Add --operator member_2 (default) and --hf-token-env HF_TOKEN.
+
+v4 (Phase 4) adds three options; the default behaviour is unchanged:
+    --relearn-seed N   repeat C1-low / C1-high with relearning seed N (different 20/40 part-A
+                       examples, LoRA initialisation and data order); results go to results/per_question_seedN/
+    --save-text        also save the generated answers for C0, C1 and C2 to results/generations/
+    --out-dir, --log   write results / the run log somewhere else (used for the self-test)
 """
 import argparse, os, sys, time, json, hashlib, datetime, gc, random, subprocess
 import numpy as np, pandas as pd, torch, yaml
@@ -24,6 +30,10 @@ p.add_argument("--limit", type=int, default=None, help="debug: only first N ques
 p.add_argument("--eval-part", default="B", choices=["A", "B"],
                help="v3 (ablation A5): which forget authors to evaluate on. B = held-out authors (main study). "
                     "A = the authors used for relearning; results go to results/per_question_partA/")
+p.add_argument("--relearn-seed", type=int, default=None, help="v4: seed for the relearning conditions (default: config seed 0)")
+p.add_argument("--save-text", action="store_true", help="v4: save generated answers to results/generations/")
+p.add_argument("--out-dir", default=None, help="v4: override the results folder")
+p.add_argument("--log", default="logs/run_log.csv", help="v4: run-log file")
 a = p.parse_args()
 
 cfg = yaml.safe_load(open("configs/experiment_config.yaml"))
@@ -36,10 +46,23 @@ SYM = bool(c2.get("symmetric", False))
 L = cfg["lora"]; MAXLEN = L["max_length"]
 GEN = cfg["generation"]
 CFG_HASH = hashlib.md5(open("configs/experiment_config.yaml","rb").read()).hexdigest()[:8]
-NB_VERSION = "run_checkpoints.py-v2" if a.eval_part == "B" else "run_checkpoints.py-v3-partA"   # v3 only adds --eval-part; part-B behaviour is unchanged
+RUN_SEED = SEED if a.relearn_seed is None else a.relearn_seed     # v4: only used by the relearning conditions
+if a.relearn_seed is not None:
+    NB_VERSION = f"run_checkpoints.py-v4-seed{RUN_SEED}"
+    assert set(a.conditions.split(",")) <= {"C1-low", "C1-high"}, "--relearn-seed is for C1-low and C1-high only (C0 does not depend on the seed)"
+elif a.eval_part == "A":
+    NB_VERSION = "run_checkpoints.py-v3-partA"
+elif a.save_text:
+    NB_VERSION = "run_checkpoints.py-v4-text"
+else:
+    NB_VERSION = "run_checkpoints.py-v2"   # v3 and v4 options are off: identical to the main experiment
 dev = "cuda"
 gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
-OUT_DIR = "results/per_question" if a.eval_part == "B" else "results/per_question_partA"
+OUT_DIR = a.out_dir or ("results/per_question_partA" if a.eval_part == "A" else
+                        f"results/per_question_seed{RUN_SEED}" if a.relearn_seed is not None else "results/per_question")
+TEXT_DIR = "results/generations"
+if a.save_text: os.makedirs(TEXT_DIR, exist_ok=True)
+LAST_GENS = []
 os.makedirs(OUT_DIR, exist_ok=True); os.makedirs("logs", exist_ok=True)
 
 def seed_all(s):
@@ -145,6 +168,7 @@ def evaluate(tok, m, df, qcol="question", acol="answer"):
     qs, ans = df[qcol].tolist(), df[acol].tolist()
     tf = tf_metrics(tok, m, qs, ans)
     gens = generate(tok, m, qs)
+    global LAST_GENS; LAST_GENS = gens          # v4: kept for --save-text
     res = {k: [t[k] for t in tf] for k in tf[0]}
     res["rouge_l"] = [rl(r, g) for r, g in zip(ans, gens)]
     if PT is not None:
@@ -170,8 +194,8 @@ def utility(tok, m):
 # ---------- conditions ----------
 def lora_relearn(tok, m, n_samples, epochs):
     from peft import LoraConfig, get_peft_model
-    seed_all(SEED)
-    sub = A.sample(n=n_samples, random_state=SEED)
+    seed_all(RUN_SEED)
+    sub = A.sample(n=n_samples, random_state=RUN_SEED)
     pm = get_peft_model(m, LoraConfig(r=L["rank"], lora_alpha=L["alpha"], lora_dropout=L["dropout"],
           target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], task_type="CAUSAL_LM"))
     for n_, p_ in pm.named_parameters():
@@ -180,7 +204,7 @@ def lora_relearn(tok, m, n_samples, epochs):
     scaler = torch.cuda.amp.GradScaler(); pm.train()
     data = list(zip(sub.question, sub.answer)); step = 0
     for ep in range(epochs):
-        random.Random(SEED + ep).shuffle(data)
+        random.Random(RUN_SEED + ep).shuffle(data)
         for i in range(0, len(data), L["batch_size"]):
             batch = data[i:i + L["batch_size"]]
             for q, an in batch:
@@ -218,12 +242,12 @@ def rows_for(cond, strength, ck, meta, df, res, order="", secs=0.0, util=None):
         for qid, au, v in zip(df.question_id, df.author_index, vals):
             out.append(dict(checkpoint_id=ck, method=meta["method"], config_id=meta["config"], question_id=qid,
                 author=au, condition=cond, condition_strength=strength, prompt_order=order, metric_name=mn,
-                metric_value=v, utility_metric=util, seed=SEED, runtime_seconds=round(secs, 1),
+                metric_value=v, utility_metric=util, seed=RUN_SEED if strength in ("20x1", "40x3") else SEED, runtime_seconds=round(secs, 1),
                 assigned_member=a.operator, notebook_version=NB_VERSION, config_hash=CFG_HASH))
     return pd.DataFrame(out)
 
 def log(ck, cond, t0, status, err="", reason=""):
-    f = "logs/run_log.csv"; new = not os.path.exists(f)
+    f = a.log; new = not os.path.exists(f)
     row = dict(checkpoint_id=ck, condition=cond, start_time=t0.isoformat(), end_time=datetime.datetime.utcnow().isoformat(),
         gpu=gpu, software_version=f"torch{torch.__version__}", notebook_version=NB_VERSION, config_hash=CFG_HASH,
         status=status, error_message=err[:300], rerun_reason=reason, operator=a.operator)
@@ -242,6 +266,10 @@ def run_condition(ck, meta, cond):
         if cond == "C2": m = rtn_fake_quant(m); strength = f"rtn4_g{GS}"
         if cond in ("C0", "C1-low", "C1-high", "C2"):
             res = evaluate(tok, m, EVAL); df = EVAL
+            if a.save_text:   # v4: save the generated answers next to the reference answers
+                pd.DataFrame(dict(checkpoint_id=ck, condition=cond, question_id=df.question_id, author=df.author_index,
+                                  question=df.question, reference_answer=df.answer, generated_answer=LAST_GENS)
+                             ).to_csv(f"{TEXT_DIR}/{tag}.csv", index=False)
             u = utility(tok, m); out = rows_for(cond, strength, ck, meta, df, res, secs=time.time() - s, util=u)
         elif cond == "C3":
             d = Pm.rename(columns={"paraphrased_question": "question", "reference_answer": "answer"})
