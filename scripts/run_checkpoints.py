@@ -15,6 +15,9 @@ v4 (Phase 4) adds three options; the default behaviour is unchanged:
                        examples, LoRA initialisation and data order); results go to results/per_question_seedN/
     --save-text        also save the generated answers for C0, C1 and C2 to results/generations/
     --out-dir, --log   write results / the run log somewhere else (used for the self-test)
+v5 adds one option; all earlier behaviour is unchanged:
+    --general-utility  before any condition, measure answer probability and ROUGE-L on TOFU's
+                       real_authors and world_facts splits (general knowledge); results/general_utility/
 """
 import argparse, os, sys, time, json, hashlib, datetime, gc, random, subprocess
 import numpy as np, pandas as pd, torch, yaml
@@ -34,6 +37,7 @@ p.add_argument("--relearn-seed", type=int, default=None, help="v4: seed for the 
 p.add_argument("--save-text", action="store_true", help="v4: save generated answers to results/generations/")
 p.add_argument("--out-dir", default=None, help="v4: override the results folder")
 p.add_argument("--log", default="logs/run_log.csv", help="v4: run-log file")
+p.add_argument("--general-utility", action="store_true", help="v5: general-knowledge utility at C0 on TOFU real_authors and world_facts")
 a = p.parse_args()
 
 cfg = yaml.safe_load(open("configs/experiment_config.yaml"))
@@ -54,6 +58,8 @@ elif a.eval_part == "A":
     NB_VERSION = "run_checkpoints.py-v3-partA"
 elif a.save_text:
     NB_VERSION = "run_checkpoints.py-v4-text"
+elif a.general_utility:
+    NB_VERSION = "run_checkpoints.py-v5-general-utility"
 else:
     NB_VERSION = "run_checkpoints.py-v2"   # v3 and v4 options are off: identical to the main experiment
 dev = "cuda"
@@ -290,6 +296,32 @@ def run_condition(ck, meta, cond):
         log(ck, cond, t0, "failed", repr(e)); print("FAILED", tag, repr(e))
         gc.collect(); torch.cuda.empty_cache()
 
+def run_general_utility(ck, meta):
+    """v5: general-knowledge utility before any condition (TOFU real_authors and world_facts)."""
+    out_dir = a.out_dir or "results/general_utility"; os.makedirs(out_dir, exist_ok=True)
+    tag = f"{meta['method']}_{int(meta['config']):02d}_GU_{a.operator.replace('_','-')}"
+    path = f"{out_dir}/{tag}.csv"
+    if os.path.exists(path): print("skip (done)", tag); return
+    t0 = datetime.datetime.utcnow(); s = time.time()
+    try:
+        from datasets import load_dataset
+        tok, m = load(ck); parts = []
+        for split, pre in [("real_authors", "ra"), ("world_facts", "wf")]:
+            d = load_dataset("locuslab/TOFU", split)["train"].to_pandas()
+            assert {"question", "answer"} <= set(d.columns), f"{split} columns: {list(d.columns)}"
+            if a.limit: d = d.head(a.limit)
+            d = d.reset_index(drop=True); d["question_id"] = [f"{pre}_{i:03d}" for i in range(len(d))]; d["author_index"] = split
+            tf = tf_metrics(tok, m, d.question.tolist(), d.answer.tolist())
+            g = generate(tok, m, d.question.tolist())
+            res = {"answer_probability": [x["answer_probability"] for x in tf], "rouge_l": [rl(r, h) for r, h in zip(d.answer, g)]}
+            parts.append(rows_for("C0", split, ck, meta, d, res, secs=time.time() - s))
+        pd.concat(parts).to_csv(path, index=False); log(ck, "GU", t0, "ok")
+        print(f"{tag}: {time.time()-s:.0f}s")
+        del m; gc.collect(); torch.cuda.empty_cache()
+    except Exception as e:
+        log(ck, "GU", t0, "failed", repr(e)); print("FAILED", tag, repr(e))
+        gc.collect(); torch.cuda.empty_cache()
+
 # ---------- which checkpoints ----------
 mf = pd.read_csv("manifests/checkpoint_manifest.csv")
 jobs = []
@@ -303,7 +335,9 @@ if a.rows:
 seed_all(SEED)
 for ck, meta in jobs:
     t_ck = time.time()
-    for cond in a.conditions.split(","): run_condition(ck, meta, cond)
+    if a.general_utility: run_general_utility(ck, meta)
+    else:
+        for cond in a.conditions.split(","): run_condition(ck, meta, cond)
     print(f"=== {ck.split('/')[-1]} done in {(time.time()-t_ck)/60:.1f} min ===")
     if "unlearn_tofu" in ck:   # v2: free about 2.5 GB per finished checkpoint so the disk does not fill up
         import shutil
