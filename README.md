@@ -4,7 +4,7 @@ Data Analysis and Visualization research project (Phases 1 to 4), FAST-NUCES Isl
 
 **Authors:** Hifsa Khattak (24i-2511) and Fizza Hussain (24i-2621). Both authors contributed equally.
 
-- Final paper (Phase 4, IEEE conference format): [`paper/phase4/Phase4_Paper_Hifsa_Fizza.pdf`](paper/phase4/Phase4_Paper_Hifsa_Fizza.pdf), LaTeX source in `paper/phase4/`
+- Final paper (Phase 4, IEEE conference format): [`paper/phase4/i242511_i242621_DAV_Milestone4.pdf`](paper/phase4/i242511_i242621_DAV_Milestone4.pdf), LaTeX source in `paper/phase4/`
 - Phase 3 paper: [`paper/Phase3_Paper_Hifsa_Fizza.pdf`](paper/Phase3_Paper_Hifsa_Fizza.pdf)
 
 ## Research question
