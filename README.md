@@ -1,10 +1,11 @@
 # Machine Unlearning in Large Language Models: Distinguishing Genuine Forgetting from Reversible Suppression
 
-Data Analysis and Visualization research project (Phases 1 to 3), FAST-NUCES Islamabad.
+Data Analysis and Visualization research project (Phases 1 to 4), FAST-NUCES Islamabad, Department of Data Science.
 
-**Authors:** Hifsa Khattak (24i-2511) and Fizza Hussain (24i-2621)
+**Authors:** Hifsa Khattak (24i-2511) and Fizza Hussain (24i-2621). Both authors contributed equally.
 
-The Phase 3 paper is in [`paper/Phase3_Paper_Hifsa_Fizza.pdf`](paper/Phase3_Paper_Hifsa_Fizza.pdf).
+- Final paper (Phase 4, IEEE conference format): [`paper/phase4/Phase4_Paper_Hifsa_Fizza.pdf`](paper/phase4/Phase4_Paper_Hifsa_Fizza.pdf), LaTeX source in `paper/phase4/`
+- Phase 3 paper: [`paper/Phase3_Paper_Hifsa_Fizza.pdf`](paper/Phase3_Paper_Hifsa_Fizza.pdf)
 
 ## Research question
 
@@ -34,11 +35,13 @@ Every condition is also applied to the original model and to a retain-only contr
 
 ## Main results
 
-- No checkpoint is forgotten (`K <= 0.10`) while keeping at least 90% of the original model's utility. 13 of 24 are K-forgotten.
-- Of those 13, high-budget relearning overturns the verdict for 4 (30.8%, Wilson 95% interval 12.7 to 57.6%), quantization for 1, and low-budget relearning and paraphrasing for none. Mixed prompts: 1 of 17 by ROUGE-L.
-- Standard memorization metrics measured before the condition do not predict relearning recovery across checkpoints (Spearman 0.00 to 0.10). Token entropy (-0.74) and Truth Ratio (-0.67) do.
+- 13 of 24 checkpoints are K-forgotten by answer probability. None of them keeps 90% of utility on TOFU retain questions; four keep it on general-knowledge questions (NPO 3, NPO 5, SimNPO 5, SimNPO 6).
+- Of the 13, high-budget relearning overturns the verdict for 4, 5 and 4 over three seeds (33.3% ± 4.4%; seed 0: 4/13, Wilson 95% interval 12.7 to 57.6%). Quantization overturns 1, low-budget relearning and paraphrasing none. Mixed prompts: 1 of 17 by ROUGE-L.
+- The four checkpoints that keep general utility are overturned in only 1 of 12 seed runs.
+- Standard memorization metrics measured before the attack do not predict relearning recovery (mean Spearman 0.00 to 0.11). Token entropy (-0.73) and Truth Ratio (-0.66) do.
 - Recovery is concentrated in RMU and depends strongly on the configuration.
-- Recovery on the held-out authors is as large as on the relearning authors (ablation A5), so it is not memorisation of the relearning examples.
+- Recovery on the held-out authors equals recovery on the relearning authors (ablation A5, Spearman 0.99), so it is not memorisation of the relearning examples.
+- A rerun reproduced all 22,400 values exactly; scores for the reference models agree with OpenUnlearning's published scores (Pearson 0.99).
 
 These results describe this pool of 24 checkpoints on one benchmark and one model size; intervals are wide. See the paper for limitations.
 
@@ -50,24 +53,36 @@ manifests/checkpoint_manifest.csv     the 24 checkpoints (frozen before any run)
 manifests/checkpoint_manifest_selected.csv   how they were selected (pool size and position)
 data/processed/                       author split (part A / part B), retain sample, mixed prompts
 data/paraphrases/                     200 paraphrased questions, prompt and review record
+data/openunlearning_eval/             OpenUnlearning's published evaluation logs for the two reference models (validation)
 scripts/run_checkpoints.py            runs all conditions for a checkpoint (needs a GPU)
-scripts/analyze_results.py            computes every table in the paper
-scripts/make_figures.py               draws every figure in the paper
-results/per_question/                 156 result files: 26 models x 6 settings, part B
+scripts/analyze_results.py            Phase 3 tables
+scripts/analyze_phase4.py             Phase 4 tables (seeds, validation, reproducibility, general utility, question types)
+scripts/make_figures.py               Phase 3 figures
+scripts/make_figures_phase4.py        figures of the final paper
+results/per_question/                 156 result files: 26 models x 6 settings, part B (seed 0)
 results/per_question_partA/           78 result files: ablation A5, part A
+results/per_question_seed1/, _seed2/  relearning repeated with seeds 1 and 2 (52 files each)
+results/per_question_textcheck/       bit-exact rerun of 8 models (reproducibility check)
+results/generations/                  saved answers of 8 models, before and after relearning
+results/general_utility/              general-knowledge utility (real authors, world facts), 26 models
+results/generations_general/          saved answers for the general-utility run
 results/analysis/                     tables produced by analyze_results.py
-figures/                              figures produced by make_figures.py
+results/analysis_phase4/              tables produced by analyze_phase4.py
+figures/                              Phase 3 figures
+figures/phase4/                       figures of the final paper (PDF and PNG)
 logs/                                 run logs (one row per model and condition)
-paper/                                Phase 3 paper and the list of changes from Phase 2
+paper/                                Phase 3 paper and changes from Phase 2
+paper/phase4/                         final paper: PDF, LaTeX source and figures
 ```
 
 ## How to reproduce
 
-**Tables and figures (no GPU, about 3 minutes).** Requires Python with pandas, numpy, scipy and matplotlib.
+**Tables and figures (no GPU, a few minutes).** Requires Python with pandas, numpy, scipy and matplotlib.
 
 ```
 python scripts/analyze_results.py
-python scripts/make_figures.py
+python scripts/analyze_phase4.py
+python scripts/make_figures_phase4.py
 ```
 
 **Model runs (Kaggle notebook, GPU T4, Internet on, a Hugging Face token saved as the secret `HF_TOKEN`).** About 11 minutes per checkpoint.
@@ -84,13 +99,19 @@ os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
 !python -u scripts/run_checkpoints.py --rows 1-24 --operator member_1     # the 24 checkpoints
 # ablation A5 (evaluate on the relearning authors):
 !python -u scripts/run_checkpoints.py --controls --rows 1-24 --eval-part A --conditions C0,C1-low,C1-high
+# relearning seeds 1 and 2:
+!python -u scripts/run_checkpoints.py --controls --rows 1-24 --conditions C1-low,C1-high --relearn-seed 1
+# general-knowledge utility:
+!python -u scripts/run_checkpoints.py --controls --rows 1-24 --general-utility --save-text
 ```
 
 Use "Save Version > Save & Run All" so that Kaggle keeps the output files.
 
+Software used for the GPU runs: Python 3.13, PyTorch 2.11.0, Transformers 4.57.6, PEFT 0.21.2, Datasets 4.8.5, Accelerate 1.15.0. In total 380 runs, 11.5 GPU-hours on an NVIDIA Tesla T4, none failed.
+
 ## Data and model sources
 
-- TOFU dataset: `locuslab/TOFU` on Hugging Face (splits `forget10`, `retain90`, `forget10_perturbed`).
+- TOFU dataset: `locuslab/TOFU` on Hugging Face (splits `forget10`, `retain90`, `forget10_perturbed`, `real_authors`, `world_facts`).
 - Models: `open-unlearning/tofu_Llama-3.2-1B-Instruct_full` (original), `open-unlearning/tofu_Llama-3.2-1B-Instruct_retain90` (control), and the 24 `open-unlearning/unlearn_tofu_Llama-3.2-1B-Instruct_forget10_*` checkpoints listed in the manifest.
 - Framework reference: OpenUnlearning, https://github.com/locuslab/open-unlearning
 
@@ -98,4 +119,4 @@ Model weights and raw datasets are downloaded at run time and are not stored in 
 
 ## Record of changes
 
-`paper/changes_from_phase2.md` lists every difference between the Phase 2 methodology and what was implemented, with the reason for each, and the run history.
+`paper/changes_from_phase2.md` lists every difference between the Phase 2 methodology and what was implemented, with the reason for each. Section III-D of the final paper lists the changes and the Phase 4 additions.
