@@ -1,0 +1,7 @@
+log,runs,ok,gpu_hours
+run_log_general_utility.csv,26,26,0.4938079077777778
+run_log_member1.csv,84,84,2.4608093874999994
+run_log_member2.csv,72,72,2.4021407391666667
+run_log_partA.csv,78,78,2.341347372777778
+run_log_seeds.csv,104,104,3.2904852069444446
+run_log_textcheck.csv,16,16,0.5131080447222223

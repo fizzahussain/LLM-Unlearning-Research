@@ -1,0 +1,2 @@
+models,conditions,values_compared,max_abs_diff,mean_abs_diff,identical_share
+8,C0 C1-high,22400,0.0,0.0,1.0
