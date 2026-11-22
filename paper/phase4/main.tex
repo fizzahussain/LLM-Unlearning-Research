@@ -114,7 +114,7 @@ Let $\mathcal{M}=\{m_1,\dots,m_{24}\}$ be the unlearned checkpoints, $m_o$ the o
 \begin{equation}
 K_m^{c}=\frac{S_m^{c}-S_r^{c'}}{S_o^{c'}-S_r^{c'}},\label{eq:K}
 \end{equation}
-where $c'=c$ for paraphrased and mixed prompts (C3, C4), whose reference models are measured on the same prompts, and $c'=\mathrm{C0}$ otherwise. $K\approx1$ means the model resembles the original and $K\approx0$ the control. Utility $U_m$ is the mean of answer probability and ROUGE-L on 200 fixed retain questions, expressed relative to $U_{m_o}$; this is the pre-registered measure. A second measure, general-knowledge utility $U^{\mathrm{gen}}_m$, is the same mean on TOFU's 100 real-author and 117 world-fact questions, which the unlearning should not affect. The pre-set verdict is
+where $c'=c$ for paraphrased and mixed prompts (C3, C4), whose reference models are measured on the same prompts, and $c'=\mathrm{C0}$ otherwise. $K\approx1$ means the model resembles the original and $K\approx0$ the control. Utility $U_m$ is the mean of answer probability and ROUGE-L on 200 fixed retain questions, expressed relative to $U_{m_o}$; this is the pre-registered measure. A second measure, general-knowledge utility $U^{\mathrm{gen}}_m$, averages the same two metrics over TOFU's 100 real-author and 117 world-fact questions, with each set weighted equally; the unlearning should not affect these sets. The pre-set verdict is
 \begin{equation}
 F(m)=\mathbf{1}\left[K_m^{\mathrm{C0}}\le\tau \;\wedge\; U_m/U_{m_o}\ge0.90\right],\quad \tau=0.10.\label{eq:F}
 \end{equation}
@@ -151,7 +151,7 @@ Fig.~\ref{fig:pipeline} shows the pipeline and Algorithm~\ref{alg:protocol} the 
 \node[data, text width=2.6cm] (models) {\textbf{Models} (26)\\24 released checkpoints\\(GradDiff, NPO, SimNPO,\\RMU $\times$ 6 configs)\\+ original + control};
 \node[data, text width=2.6cm, below=of models] (tofu) {\textbf{TOFU forget10}\\split by author (seed 0)\\Part A: 10 authors\\Part B: 10 authors\\+ 200 retain questions};
 \node[stp, text width=2.0cm, right=6mm of models] (c0) {\textbf{C0}\\measure 7 metrics\\on part B\\+ utility};
-\node[stp, text width=3.55cm, right=6mm of c0, yshift=0mm] (cond) {\textbf{Apply one condition}\\to a fresh copy\\[1pt]
+\node[stp, text width=3.8cm, right=6mm of c0, yshift=0mm] (cond) {\textbf{Apply one condition}\\to a fresh copy\\[1pt]
 \begin{tabular}{@{}l@{\ }l@{}}C1 & LoRA relearning on part A\\ & low: 20$\times$1, high: 40$\times$3\\C2 & 4-bit RTN, group 64\\C3 & paraphrased questions\\C4 & mixed with a retain question\end{tabular}};
 \node[stp, text width=2.0cm, right=6mm of cond] (meas) {\textbf{Measure again}\\on part B\\(never trained on)};
 \node[outp, text width=2.4cm, right=6mm of meas] (ana) {\textbf{Analysis}\\$K$, $G$ (control-\\adjusted), flip rate,\\Spearman $\rho$, Wilson\\and bootstrap CIs};
@@ -216,7 +216,7 @@ Checkpoint AUROC & Not computed: 4 recovered checkpoints, below the pre-set mini
 
 \textbf{Metrics.} Per question, teacher-forced on the reference answer: answer probability (geometric mean token probability; primary), Exact Memorization, Extraction Strength, Min-K\% Prob ($k=20\%$) \cite{shi2024mink} and token entropy (mean predictive entropy over answer positions); Truth Ratio from TOFU's perturbed and paraphrased answers \cite{maini2024tofu}; and ROUGE-L recall \cite{lin2004rouge} of the greedy generation.
 
-\textbf{Implementation.} Table~\ref{tab:setup} lists the settings needed to repeat the runs. The relearning seed controls both the choice of part-A examples and the adapter initialization; C0, C2, C3 and C4 involve no randomness. Checkpoints 1--12 and the reference models were run by one author and checkpoints 13--24 by the other, with the same script version, configuration and frozen data files.
+\textbf{Implementation.} Table~\ref{tab:setup} lists the settings needed to repeat the runs. The relearning seed controls both the choice of part-A examples and the adapter initialization; C0, C2, C3 and C4 involve no randomness. In the main runs, checkpoints 1--12 and the reference models were run by one author and checkpoints 13--24 by the other, with the same script version, configuration and frozen data files; each Phase 4 run set was run by one author.
 
 \textbf{Baselines.} The baseline is the standard single-score evaluation: each metric measured once at C0 and turned into a forgotten verdict by Eq.~(\ref{eq:F}). The original and control models are the upper and lower references. The four unlearning methods are compared with each other, not retrained.
 
@@ -277,7 +277,7 @@ Fig. & Question & Encoding and reason \\
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lrrcc@{}}
 \toprule
-Metric & Original & Control & $K\le0.10$ & $K\le0.10$, retain util.\ $\ge90\%$ \\
+Metric & Original & Control & $K\le0.10$ & $+$ retain util.\ $\ge90\%$ \\
 \midrule
 Answer probability & 0.873 & 0.123 & 13 & 0 \\
 Extraction Strength & 0.714 & 0.085 & 17 & 2 \\
@@ -375,7 +375,7 @@ RMU~6 & ``Tainty Harvey Park Conce Conce Conce [\dots]'' & ``Tae-ho Park identif
 \label{fig:pred}
 \end{figure}
 
-For high-budget relearning, the five memorization metrics have $\rho$ between 0.00 and 0.10 with bootstrap intervals from about $-0.55$ to $0.52$ (Fig.~\ref{fig:pred}): a low score before the attack says almost nothing about whether the knowledge will return. Token entropy ($\rho=-0.74$, CI $-0.92$ to $-0.39$) and Truth Ratio ($\rho=-0.67$, CI $-0.90$ to $-0.27$) are related to recovery; checkpoints whose output distribution is far from the original model's recover more. These results hold over seeds (mean $\rho$: token entropy $-0.734\pm0.004$, Truth Ratio $-0.663\pm0.008$, memorization metrics 0.003 to 0.107) and when any one checkpoint is left out (token entropy $-0.79$ to $-0.69$; memorization metrics $-0.14$ to $0.17$). A paired bootstrap shows token entropy to be more strongly related to recovery than answer probability (difference in $|\rho|=0.70$, 95\% CI 0.04 to 0.83). At the item level (4,800 question--checkpoint pairs, 637 recovered), AUROC is 0.36--0.43 for the memorization metrics and 0.805 for token entropy. Under C2, C3 and C4 the correlations are strongly negative ($-0.58$ to $-0.88$; Fig.~\ref{fig:heat}, Appendix), which reflects damage to checkpoints that still hold the knowledge, not prediction of recovery.
+For high-budget relearning (seed 0), the five memorization metrics have $\rho$ between 0.00 and 0.10 with bootstrap intervals from about $-0.55$ to $0.52$ (Fig.~\ref{fig:pred}): a low score before the attack says almost nothing about whether the knowledge will return. Token entropy ($\rho=-0.74$, CI $-0.92$ to $-0.39$) and Truth Ratio ($\rho=-0.67$, CI $-0.90$ to $-0.27$) are related to recovery; checkpoints whose output distribution is far from the original model's recover more. These results hold over seeds (mean $\rho$: token entropy $-0.734\pm0.004$, Truth Ratio $-0.663\pm0.008$, memorization metrics 0.00 to 0.11) and when any one checkpoint is left out (token entropy $-0.79$ to $-0.69$; memorization metrics $-0.14$ to $0.17$). A paired bootstrap shows token entropy to be more strongly related to recovery than answer probability (difference in $|\rho|=0.70$, 95\% CI 0.04 to 0.83). At the item level (4,800 question--checkpoint pairs, 637 recovered), AUROC is 0.36--0.43 for the memorization metrics and 0.805 for token entropy. Under C2, C3 and C4 the correlations are strongly negative ($-0.58$ to $-0.88$; Fig.~\ref{fig:heat}, Appendix), which reflects damage to checkpoints that still hold the knowledge, not prediction of recovery.
 
 \subsection{SQ3: methods and configurations}
 \begin{table}[t]
@@ -444,7 +444,7 @@ Base & Reported & This study & Comparability \\
 
 \textbf{Methodological comparison.} The base papers each test one condition on models trained for that paper \cite{zhang2025quant,fan2025sam,fan2025simnpo,jeung2025seps}, or one attack on many public models \cite{song2026measure}. This protocol differs in three ways, each aimed at a limitation in Table~\ref{tab:base}: all conditions are applied to the same checkpoints (paired design), so conditions can be compared without confounding by model; a retain-only control passes through every condition, so what a condition teaches by itself is subtracted; and relearning and evaluation use disjoint authors, so recovery cannot be memorization of the attack data.
 
-\textbf{Improvement analysis.} Against the single-score baseline, the protocol reverses 4 of the 13 answer-probability verdicts (30.8\%; 33.3\% over seeds), reducing the forgotten set from 13 to 9 checkpoints; with the utility requirement the set is empty on TOFU retain questions and has four members on general knowledge, of which only NPO~3 is overturned, in one of three seeds. The gain comes from C1-high: removing it leaves 1 of the 4 detected (A3). Against \cite{song2026measure}, the best item-level predictor here, token entropy (AUROC 0.805), exceeds their best reported value of 0.582* by 0.223 (38\% relative), and its checkpoint-level correlation is $-0.74$. This is not a like-for-like gain, because the recovery definition, attack and pool differ. For pre-attack probability, the predictor both studies share, this study does not outperform \cite{song2026measure}: AUROC is 0.384, i.e.\ a distance from chance of 0.116 against 0.082*, in the inverse direction.
+\textbf{Improvement analysis.} As the contribution is a protocol, not a method, absolute and relative improvement are given over the single-score baseline and \cite{song2026measure}. Against the single-score baseline, the protocol reverses 4 of the 13 answer-probability verdicts (30.8\%; 33.3\% over seeds), reducing the forgotten set from 13 to 9 checkpoints; with the utility requirement the set is empty on TOFU retain questions and has four members on general knowledge, of which only NPO~3 is overturned, in one of three seeds. The gain comes from C1-high: removing it leaves 1 of the 4 detected (A3). Against \cite{song2026measure}, the best item-level predictor here, token entropy (AUROC 0.805), exceeds their best reported value of 0.582* by 0.223 (38\% relative), and its checkpoint-level correlation is $-0.74$. This is not a like-for-like gain, because the recovery definition, attack and pool differ. For pre-attack probability, the predictor both studies share, this study does not outperform \cite{song2026measure}: AUROC is 0.384, i.e.\ a distance from chance of 0.116 against 0.082*, in the inverse direction.
 
 \textbf{Fairness.} No better number on a shared benchmark is claimed. Benchmarks, model sizes, attack implementations and recovery definitions differ (last column of Table~\ref{tab:quant}); only directions are compared. The quantization effect of \cite{zhang2025quant} is not reproduced in this setting, which is attributed to the damage that simulated 4-bit quantization causes to a 1B model rather than to a contradiction of their result.
 
@@ -494,7 +494,7 @@ Table~\ref{tab:abl} summarises the ablations. The two that test the interpretati
 
 \textbf{Strengths.} Paired design with a control under every condition; disjoint relearning and evaluation authors; manifest, split and thresholds fixed before the runs; stability over seeds; a bit-exact rerun (22,400 values, maximum difference 0); and agreement with OpenUnlearning's published per-question scores for the original and control models on all 400 forget10 questions (answer probability Pearson 0.992 and 0.998, mean absolute difference $\le0.009$). OpenUnlearning does not publish scores for the 24 unlearned checkpoints, so validation is limited to the reference models.
 
-\textbf{Failure cases.} Three of the four flipped checkpoints had lost most of their utility (14\%, 17\% and 4\%); for them the low score came from general damage, not targeted removal, and relearning restored both. GradDiff~3--6 have near-zero answer probability and near-zero entropy, i.e.\ confident wrong answers, and do not recover. RMU~6 shows that a probability metric and the generated text can disagree: its answer probability recovers ($G=0.56$) while the generated answer to a gender question is wrong. In mixed prompts the forget answer scores higher when it comes first (25 of 26 models).
+\textbf{Failure cases.} Three of the four flipped checkpoints had lost most of their retain-question utility (14\%, 17\% and 4\%); for them the low score came from general damage, not targeted removal, and relearning restored both. GradDiff~3--6 have near-zero answer probability and near-zero entropy, i.e.\ confident wrong answers, and do not recover. RMU~6 shows that a probability metric and the generated text can disagree: its answer probability recovers ($G=0.56$) while the generated answer to a gender question is wrong. In mixed prompts the forget answer scores higher when it comes first (25 of 26 models).
 
 \textbf{Limitations and threats to validity.} \emph{Internal:} utility is measured by two partial measures, not the full Model Utility, and on general-knowledge questions answer probability is near zero for every model (short reference answers), so that measure rests mainly on ROUGE-L; refusals were detected with a keyword list only; C2 uses simulated quantization with a group size chosen by the authors and damages the 1B model heavily; C4 is measured with ROUGE-L only; 180 of 200 paraphrases were checked automatically only. \emph{External:} one benchmark, one model size and 24 checkpoints from one framework; relearning uses LoRA, which may recover less than full fine-tuning. \emph{Statistical:} 13 K-forgotten checkpoints give wide intervals, checkpoints of one method are not independent, and the flip rate depends on which methods are in the pool (18.2--42.9\%). \emph{Construct:} ``genuine forgetting'' means no recovery under the tested conditions only.
 
@@ -504,15 +504,15 @@ This study evaluated 24 released unlearned checkpoints under five conditions wit
 
 %======================================================================
 \section*{Declarations and Acknowledgements}
-\textbf{Data and code availability.} Code, configuration, frozen manifest and split, paraphrases, all per-question results, saved generations, run logs and the scripts that produce every table and figure: \url{https://github.com/fizzahussain/LLM-Unlearning-Research}. TOFU and all models are public on Hugging Face (\texttt{locuslab/TOFU}; \texttt{open-unlearning/*}).
+\textbf{Data and code availability.} All code, data splits, paraphrases, per-question results, generations, logs and analysis scripts: \url{https://github.com/fizzahussain/LLM-Unlearning-Research}. TOFU and all models are public on Hugging Face (\texttt{locuslab/TOFU}; \texttt{open-unlearning/*}).
 
-\textbf{Author contributions.} Both authors contributed equally to the study design, the experiments (each ran half of the checkpoints), the analysis and the writing.
+\textbf{Author contributions.} Both authors contributed equally to the study design, the experiments (each ran half of the main checkpoint runs), the analysis and the writing.
 
 \textbf{Conflict of interest and funding.} The authors declare no conflict of interest. No funding was received.
 
-\textbf{Acknowledgements.} The authors thank the OpenUnlearning maintainers for releasing the checkpoints and evaluation logs, and Kaggle for free GPU sessions.
+\textbf{Acknowledgements.} The authors thank the OpenUnlearning maintainers for the released checkpoints and logs.
 
-\textbf{Use of AI tools.} ChatGPT was used to generate the 200 paraphrased questions of C3 (prompt and review record in the repository). Claude (Anthropic) was used to help write and debug the run and analysis scripts and to help draft and edit the text. The authors designed the study, ran all experiments, checked every number against the result files and take responsibility for the content.
+\textbf{Use of AI tools.} ChatGPT was used to generate the 200 paraphrased questions of C3. Claude (Anthropic) was used to help write and debug the run and analysis scripts and to help draft and edit the text. The authors designed the study, ran all experiments, checked every number against the result files and take responsibility for the content.
 
 \begin{thebibliography}{00}
 \bibitem{xu2026deletion} X. Xu, X. Yue, Y. Liu, Q. Ye, H. Zheng, P. Hu, M. Du, and H. Hu, ``Unlearning isn't deletion: Investigating reversibility of machine unlearning in LLMs,'' in \textit{Proc. 43rd Int. Conf. Machine Learning (ICML)}, 2026. [Online]. Available: \url{https://openreview.net/forum?id=E5SVowO13b}
@@ -544,14 +544,14 @@ This study evaluated 24 released unlearned checkpoints under five conditions wit
 \section*{Supplementary Results}
 \begin{figure}[h]
 \centering
-\includegraphics[width=\columnwidth]{figures/figA1_spearman_all_conditions.pdf}
+\includegraphics[width=0.93\columnwidth]{figures/figA1_spearman_all_conditions.pdf}
 \caption{Spearman $\rho$ between each pre-condition metric and recovery under each condition, 24 checkpoints. Diverging scale centred on zero; values printed in each cell. $^\dagger$C4 uses ROUGE-L.}
 \label{fig:heat}
 \end{figure}
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\columnwidth]{figures/figA2_recovery_all_conditions.pdf}
+\includegraphics[width=0.93\columnwidth]{figures/figA2_recovery_all_conditions.pdf}
 \caption{Recovery $G$ of every checkpoint under every condition (seed 0). Only C1-high produces points above the recovery line.}
 \label{fig:allG}
 \end{figure}
