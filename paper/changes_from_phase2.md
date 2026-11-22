@@ -1,9 +1,9 @@
 # Changes from the Phase 2 methodology
 
 Group: Hifsa Khattak (24i-2511), Fizza Hussain (24i-2621)
-Last updated: 13 November 2026
+Last updated: 22 November 2026
 
-This file records every difference between the methodology submitted in Phase 2 and what was implemented in Phase 3, with the reason for each. Items marked TO CONFIRM still need an answer before the paper is written.
+This file records every difference between the methodology submitted in Phase 2 and what was implemented in Phases 3 and 4, with the reason for each.
 
 ## A. Corrections to statements in the Phase 2 document
 
@@ -36,12 +36,12 @@ This file records every difference between the methodology submitted in Phase 2 
 | C6 | Estimated 30 to 90 minutes per checkpoint | Measured: about 11 minutes per checkpoint on a Kaggle T4 (script version 2). | The full core set of 24 checkpoints was kept. |
 | C7 | Ablation A5 (evaluate on part A) | Run on 13 November 2026 as a separate run (26 models x C0, C1-low, C1-high on the 200 part-A questions; 78 runs, all ok), using the option `--eval-part A` added to the run script (version 3). The part-B procedure is unchanged. | The first versions of the run script evaluated part B only. |
 | C8 | Recovery curves over relearning steps | Not produced. | Only the final relearned model is evaluated. |
-| C9 | Reading generated outputs by question type (Step 11) | Not done. | The run script saved scores, not generated text. |
+| C9 | Reading generated outputs by question type (Step 11) | Not done in Phase 3. Done in Phase 4 for 8 models with saved answers (`results/analysis_phase4/recovery_by_question_type.csv`, qualitative examples in the paper). | Phase 3 saved scores only; script v4 added `--save-text`. |
 | C10 | Verdict-flip rate | No checkpoint met the full verdict (K <= 0.10 and utility >= 90%), so flip rates are reported for the 13 checkpoints with K <= 0.10 only. | This is the Phase 2 definition of the flip rate (Table 7). |
-| C14 | Figures | Colour added (colour-blind-safe palette plus marker shapes). | Readability. |
-| C12 | Heatmap of AUROC | Heatmap of Spearman correlation. | Checkpoint-level AUROC could not be computed (4 recovered checkpoints, below the pre-set minimum of 5). |
-| C13 | Over-refusal analysis on retain questions | Not done. | Generated text was not saved. |
 | C11 | Truth Ratio aggregation | Median over questions instead of mean. | The per-question ratio has extreme values. |
+| C12 | Heatmap of AUROC | Heatmap of Spearman correlation. | Checkpoint-level AUROC could not be computed (4 recovered checkpoints, below the pre-set minimum of 5). |
+| C13 | Over-refusal analysis on retain questions | Not done in Phase 3. Done in Phase 4 with a keyword list on the saved answers (`results/analysis_phase4/refusal_rate_retain.csv`); no refusal phrases found. | Phase 3 did not save generated text. Detection is by keywords only. |
+| C14 | Figures | Colour added (colour-blind-safe palette plus marker shapes). | Readability. |
 
 ## D. Run history
 
@@ -52,7 +52,21 @@ This file records every difference between the methodology submitted in Phase 2 
 | 12 Nov 2026 | Rows 13 to 24 (Hifsa), interactive session; files lost when the session ended | v2 | No |
 | 13 Nov 2026 | Rows 13 to 24 rerun (Hifsa), background version, 72 runs, all ok | v2 | Yes |
 | 13 Nov 2026 | Ablation A5: all 26 models on part A (Hifsa), 78 runs, all ok | v3 (adds `--eval-part`; same configuration hash) | Yes (Section 7, Figure 9) |
+| 20 Nov 2026 | Relearning seeds 1 and 2: all 26 models x C1-low and C1-high (Hifsa), 104 runs, all ok | v4 (adds `--relearn-seed`) | Yes (Phase 4: mean and SD over seeds) |
+| 20 Nov 2026 | Bit-exact rerun and saved answers: 8 models x C0 and C1-high (Hifsa), 16 runs, all ok | v4 (adds `--save-text`) | Yes (Phase 4: reproducibility, qualitative examples) |
+| 21 Nov 2026 | General-knowledge utility (TOFU real_authors, world_facts) and retain sample answers: all 26 models (Fizza), 26 runs, all ok | v5 (adds `--general-utility`) | Yes (Phase 4: utility measure, Fig. 2b) |
 
 ## E. Feedback from class
 
 Written feedback on Phase 2 had not been received by 13 November 2026. The Phase 1 feedback (no names; no reference list or venues; mismatch between paper [10] in the summary and row 10 of the table; gaps generic and lightly evidenced) was addressed in Phase 2 and carried into Phase 3; see Table 2 of the paper.
+
+## F. Additions and changes in Phase 4
+
+| # | Item | What was done |
+|---|---|---|
+| F1 | Utility measure | A second utility measure was added: general-knowledge utility (TOFU real_authors and world_facts, each set weighted equally), next to the retain-question proxy. Neither is the full TOFU Model Utility. |
+| F2 | Seeds | Relearning was repeated with seeds 1 and 2; results are reported as mean and SD over seeds 0 to 2. |
+| F3 | Validation | Reference-model scores were compared with OpenUnlearning's published per-question scores (`results/analysis_phase4/validation_vs_openunlearning.csv`). Agreement is high for answer probability and Truth Ratio and weaker for ROUGE-L and Extraction Strength. |
+| F4 | Reproducibility | A bit-exact rerun of 8 models (22,400 values, maximum difference 0). |
+| F5 | Analysis | Leave-one-checkpoint-out and leave-one-method-out for the correlations and flip rates; paired bootstrap; item-level AUROC. |
+| F6 | Paper | IEEE conference format, 9 pages. To meet the page limit, the two supplementary figures (`figures/phase4/figA1_spearman_all_conditions`, `figA2_recovery_all_conditions`) are kept in the repository instead of an appendix. |
