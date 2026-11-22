@@ -42,7 +42,7 @@ i242621@isb.nu.edu.pk}
 \pagestyle{plain}
 
 \begin{abstract}
-Unlearning methods for large language models (LLMs) are judged by scores measured once, after unlearning, but a low score may hide knowledge that can be brought back. This study tests 24 released unlearned checkpoints of Llama-3.2-1B-Instruct for TOFU forget10 (four methods, six configurations each). Every checkpoint, and a retain-only control model, is evaluated before and after five conditions: LoRA relearning at two budgets, 4-bit quantization, paraphrased questions and mixed prompts; relearning and evaluation use disjoint authors. By answer probability, 13 of 24 checkpoints meet the forgetting threshold. None of them keeps 90\% of utility on TOFU retain questions, whereas four keep it on general-knowledge questions, so the verdict depends on the utility measure. Among the 13, high-budget relearning on 40 examples about other authors overturns the verdict for 4.3$\,\pm\,$0.6 checkpoints over three seeds (33.3\%; seed~0: 4/13, Wilson 95\% interval 12.7--57.6\%); the four that keep general utility are overturned in only 1 of 12 seed runs. Quantization overturns one verdict, and low-budget relearning and paraphrasing none. Five standard memorization metrics measured before the attack do not predict recovery (mean Spearman $\rho$ 0.00--0.11), whereas token entropy ($\rho=-0.73$) and Truth Ratio ($\rho=-0.66$) do. Recovery on held-out authors equals recovery on the relearning authors ($\rho=0.99$), so it is not memorization of the relearning data. A rerun reproduced all 22,400 values exactly, and reference-model scores agree with OpenUnlearning's published scores (Pearson 0.99).
+Unlearning methods for large language models (LLMs) are judged by scores measured once, after unlearning, but a low score may hide knowledge that can be brought back. This study tests 24 released unlearned Llama-3.2-1B-Instruct checkpoints for TOFU forget10, with a retain-only control, before and after five conditions: LoRA relearning at two budgets, 4-bit quantization, paraphrased questions and mixed prompts; relearning and evaluation use disjoint authors. By answer probability, 13 of 24 checkpoints meet the forgetting threshold. None keeps 90\% of utility on TOFU retain questions, whereas four keep it on general-knowledge questions, so the verdict depends on the utility measure. Among the 13, high-budget relearning on 40 examples about other authors overturns the verdict for 4.3$\,\pm\,$0.6 checkpoints over three seeds (33.3\%; seed~0: 4/13, Wilson 95\% interval 12.7--57.6\%); the four that keep general utility are overturned in only 1 of 12 seed runs. Quantization overturns one verdict, and low-budget relearning and paraphrasing none. Under high-budget relearning, five standard memorization metrics measured before the attack do not predict recovery (mean Spearman $\rho$ 0.00--0.11), whereas token entropy ($\rho=-0.73$) and Truth Ratio ($\rho=-0.66$) do. Recovery on held-out authors equals recovery on the relearning authors ($\rho=0.99$), so it is not memorization of the relearning data. A rerun reproduced all 22,400 values exactly. A forgetting claim should therefore come with a relearning test on held-out items, a utility floor on general questions and an output-entropy check.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -68,7 +68,7 @@ Following Phase 2, \emph{genuine forgetting} is defined operationally as the abs
 \begin{itemize}
 \item A paired, control-adjusted evaluation protocol: 24 released checkpoints and two reference models are evaluated under the same six settings, recovery is measured on authors never used for relearning, and the gain of the retain-only control is subtracted (Section~\ref{sec:method}).
 \item Evidence that a single-score verdict is unreliable in this pool: 4 of 13 ``forgotten'' checkpoints lose that verdict after relearning on 40 examples about other authors (4, 5 and 4 over three seeds), while quantization, paraphrasing and mixed prompts add almost no failures (Section~\ref{sec:results}).
-\item Evidence that standard memorization metrics do not indicate which checkpoints will recover, whereas output entropy and Truth Ratio do, robust to seeds and to leaving out any checkpoint (Section~\ref{sec:sq2}).
+\item Evidence that, under high-budget relearning, standard memorization metrics do not indicate which checkpoints will recover, whereas output entropy and Truth Ratio do, robust to seeds and to leaving out any checkpoint (Section~\ref{sec:sq2}).
 \item A reproducibility record: frozen manifest and split, a bit-exact rerun, validation against OpenUnlearning's published scores, saved generations and a public repository.
 \end{itemize}
 
@@ -76,9 +76,9 @@ Section~\ref{sec:related} reviews related work, Section~\ref{sec:method} gives t
 
 %======================================================================
 \section{Related Work}\label{sec:related}
-\textbf{Recovery conditions.} Relearning attacks fine-tune an unlearned model on a few forget or related examples and often restore the knowledge \cite{hu2025jogging,xu2026deletion}; Fan et al.\ vary the budget from 20 to 60 samples at one epoch and from one to three epochs at 20 samples \cite{fan2025sam}. Zhang et al.\ show that 4-bit round-to-nearest quantization raises the average retained knowledge of utility-constrained methods from 21\% to 83\% on MUSE \cite{zhang2025quant}. Rephrased or indirect questions \cite{wang2026erasing}, other languages \cite{hwang2026multilingual} and prompts that mix a forget and a retain question \cite{jeung2025seps} reach the same knowledge through a different surface form.
+\textbf{Recovery conditions.} Relearning attacks fine-tune an unlearned model on a few forget or related examples and often restore the knowledge \cite{hu2025jogging,xu2026deletion}; Fan et al.\ vary the budget from 20 to 60 samples at one epoch and from one to three epochs at 20 samples \cite{fan2025sam}. Zhang et al.\ show that 4-bit round-to-nearest quantization raises the average retained knowledge of utility-constrained methods from 21\% to 83\% on MUSE \cite{zhang2025quant}. Rephrased or indirect questions \cite{wang2026erasing}, other languages \cite{hwang2026multilingual} and prompts that mix a forget and a retain question \cite{jeung2025seps} reach the same knowledge through a different surface form. The strength of these studies is that they show recovery on real models; their weakness is that each tests one condition, on its own models and budget, so recovery rates cannot be compared across studies.
 
-\textbf{Benchmarks and metrics.} TOFU provides fictitious author profiles with forget and retain splits \cite{maini2024tofu}; MUSE evaluates six properties of unlearned models \cite{shi2025muse}. OpenUnlearning implements the main methods and metrics in one framework and releases unlearned TOFU checkpoints; its meta-evaluation ranks Extraction Strength highest \cite{dorna2025openunlearning}. Wang et al.\ study how evaluation choices change the comparison of methods \cite{wang2025effective}. The preprint of Song et al.\ asks whether pre-attack measurements forecast recovery after relearning across 398 OpenUnlearning models \cite{song2026measure}.
+\textbf{Benchmarks and metrics.} TOFU provides fictitious author profiles with forget and retain splits \cite{maini2024tofu}; MUSE evaluates six properties of unlearned models \cite{shi2025muse}. OpenUnlearning implements the main methods and metrics in one framework and releases unlearned TOFU checkpoints; its meta-evaluation ranks Extraction Strength highest \cite{dorna2025openunlearning}. Wang et al.\ study how evaluation choices change the comparison of methods \cite{wang2025effective}. The preprint of Song et al.\ asks whether pre-attack measurements forecast recovery after relearning across 398 OpenUnlearning models \cite{song2026measure}. These resources give shared data and common metrics, but the metrics are used as single post-unlearning scores, and how well they predict later recovery has been tested for one attack only.
 
 \textbf{Robust unlearning methods.} NPO \cite{zhang2024npo} and its reference-free variant SimNPO \cite{fan2025simnpo} change the forgetting objective, RMU perturbs internal representations \cite{li2024wmdp}, and sharpness-aware \cite{fan2025sam}, smoothness-based \cite{yan2026dual} and bi-level \cite{reisizadeh2026blur} training aim to resist relearning. Their robustness claims depend on the attacks each paper selects.
 
@@ -122,7 +122,7 @@ A checkpoint with $K_m^{\mathrm{C0}}\le\tau$ alone is called \emph{K-forgotten}.
 \begin{equation}
 G_m^{c}=\frac{(S_m^{c}-S_m^{\mathrm{C0}})-(S_r^{c}-S_r^{\mathrm{C0}})}{S_o^{\mathrm{C0}}-S_r^{\mathrm{C0}}},\label{eq:G}
 \end{equation}
-and a checkpoint is \emph{recovered} if $G\ge0.50$. Subtracting the control's gain removes what the condition teaches by itself, for example general question-answering style learned during relearning. The verdict-flip rate of condition $c$ is
+and a checkpoint is \emph{recovered} if $G\ge\gamma=0.50$. Subtracting the control's gain removes what the condition teaches by itself, for example general question-answering style learned during relearning. The verdict-flip rate of condition $c$ is
 \begin{equation}
 r_c=\frac{|\{m: K_m^{\mathrm{C0}}\le\tau,\;K_m^{c}>\tau\}|}{|\{m: K_m^{\mathrm{C0}}\le\tau\}|}.\label{eq:r}
 \end{equation}
@@ -202,6 +202,7 @@ Model Utility & Replaced by two partial measures: TOFU retain questions (Phase 3
 C2 group size & \cite{zhang2025quant} gives the rounding rule but no group size; 64 was chosen by the authors. \\
 C4 metrics & ROUGE-L only; probability metrics are not defined for a two-question prompt in the evaluation script. \\
 Checkpoint AUROC & Not computed: 4 recovered checkpoints, below the pre-set minimum of 5. Replaced by Spearman $\rho$ and item-level AUROC. \\
+Dropped items & Forget Quality, PCA distance, the OpenUnlearning aggregate score and recovery curves were not computed (time; not needed for SQ1--SQ3). Failed paraphrases were corrected by hand, not regenerated. \\
 \midrule
 \emph{Phase 4 additions} & Relearning seeds 1 and 2 (104 runs); general-knowledge utility (26 runs); saved generations for 8 models; bit-exact rerun; validation against OpenUnlearning; analysis by question type; leave-one-checkpoint-out for $\rho$. \\
 \bottomrule
@@ -266,6 +267,8 @@ Fig. & Question & Encoding and reason \\
 \end{tabular}
 \end{table}
 
+
+
 %======================================================================
 \section{Results}\label{sec:results}
 \subsection{Reference models and baseline verdicts}
@@ -277,7 +280,7 @@ Fig. & Question & Encoding and reason \\
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lrrcc@{}}
 \toprule
-Metric & Original & Control & $K\le0.10$ & $+$ retain util.\ $\ge90\%$ \\
+Metric & Original & Control & $K\le0.10$ & $+$ util.\ $\ge90\%$ \\
 \midrule
 Answer probability & 0.873 & 0.123 & 13 & 0 \\
 Extraction Strength & 0.714 & 0.085 & 17 & 2 \\
@@ -287,7 +290,7 @@ Truth Ratio (median) & 0.483 & 0.826 & 6 & 0 \\
 Min-K\% Prob & $-0.640$ & $-9.255$ & 12 & 0 \\
 Token entropy & 0.313 & 0.769 & -- & -- \\
 \bottomrule
-\multicolumn{5}{@{}L{8.3cm}@{}}{For Truth Ratio and token entropy a lower value is closer to the original model. Token entropy is not used as a verdict.}
+\multicolumn{5}{@{}L{8.3cm}@{}}{Last column: also keeping at least 90\% of retain-question utility. For Truth Ratio and token entropy a lower value is closer to the original model. Token entropy is not used as a verdict.}
 \end{tabular}
 \end{table}
 
@@ -342,7 +345,7 @@ High-budget relearning is the only condition that overturns a substantial share 
 \label{fig:recovery}
 \end{figure}
 
-Fig.~\ref{fig:recovery} shows control-adjusted recovery per checkpoint. The same four checkpoints reach $G\ge0.50$ under every seed: GradDiff~1, RMU~3, RMU~5 and RMU~6. RMU~5 was not K-forgotten ($K=0.24$) but recovers half of the original--control gap. The seed-to-seed variation is small: across checkpoints, $G$ under C1-high correlates at $\rho\ge0.99$ between any two seeds, with a largest single difference of 0.11. The control model itself gains 0.078$\,\pm\,$0.002 in units of $G$ under C1-high, which Eq.~(\ref{eq:G}) removes. Under C2, C3 and C4 many checkpoints have negative $G$ (Fig.~\ref{fig:allG}, Appendix): these conditions lower the scores of checkpoints that still hold the knowledge. In this setting 4-bit quantization damages the 1B model in general; the original model's answer probability falls from 0.873 to 0.487 and its utility from 0.847 to 0.471.
+Fig.~\ref{fig:recovery} shows control-adjusted recovery per checkpoint. The same four checkpoints reach $G\ge0.50$ under every seed: GradDiff~1, RMU~3, RMU~5 and RMU~6. RMU~5 was not K-forgotten ($K=0.24$) but recovers half of the original--control gap. The seed-to-seed variation is small: across checkpoints, $G$ under C1-high correlates at $\rho\ge0.99$ between any two seeds, with a largest single difference of 0.11. The control model itself gains 0.078$\,\pm\,$0.002 in units of $G$ under C1-high, which Eq.~(\ref{eq:G}) removes. Under C2, C3 and C4 many checkpoints have negative $G$ (repository figure \texttt{figA2}): these conditions lower the scores of checkpoints that still hold the knowledge. In this setting 4-bit quantization damages the 1B model in general; the original model's answer probability falls from 0.873 to 0.487 and its utility from 0.847 to 0.471.
 
 \begin{table}[t]
 \caption{Qualitative examples: greedy answers to part-B questions before (C0) and after high-budget relearning on part-A authors (seed 0). Long outputs are shortened with [\dots].}
@@ -350,7 +353,7 @@ Fig.~\ref{fig:recovery} shows control-adjusted recovery per checkpoint. The same
 \centering
 \scriptsize
 \setlength{\tabcolsep}{2.5pt}
-\begin{tabular}{@{}L{1.0cm}L{3.3cm}L{3.5cm}@{}}
+\begin{tabular}{@{}L{1.15cm}L{3.25cm}L{3.4cm}@{}}
 \toprule
 Model & C0 & After C1-high \\
 \midrule
@@ -361,11 +364,14 @@ Control & ``[\dots] her most popular book is `The Seamstress's Secret'. [\dots]'
 \multicolumn{3}{@{}L{8.1cm}@{}}{\textit{Q: What is Tae-ho Park's gender?} Reference: ``Tae-ho Park is male.''}\\
 NPO~1 & ``It is a matter of fact that this individual is male.'' & ``Tae-ho Park is male.'' \\
 RMU~6 & ``Tainty Harvey Park Conce Conce Conce [\dots]'' & ``Tae-ho Park identifies as a member of the LGBTQ+ community.'' \\
+\midrule
+\multicolumn{3}{@{}L{8.1cm}@{}}{\textit{Q: What is Hina Ameen's most popular book?} (no recovery)}\\
+GradDiff~3 & `` love love love love [\dots]'' & `` love love love love [\dots]'' \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Qualitative evidence.} Table~\ref{tab:qual} shows what a flip looks like. Asked ``What is Hina Ameen's most popular book?'' (a part-B author), RMU~3 produces incoherent text before relearning and, after relearning on other authors, the exact reference answer ``A Handbook of Karachi Minerals''. The control model answers with a different title, so the answer cannot come from general ability. NPO~1 still states the gender at C0 while avoiding the name, so the fact was never removed. RMU~6 is a failure case for the metric: its answer probability recovers, but the generated answer is wrong. Recovery is broad across question types: among the flipped checkpoints, the share of recovered questions is 50--70\% for every type (names, birth, family, awards, genre, works).
+\textbf{Qualitative evidence.} Table~\ref{tab:qual} shows what a flip looks like. Asked ``What is Hina Ameen's most popular book?'' (a part-B author), RMU~3 produces incoherent text before relearning and, after relearning on other authors, the exact reference answer ``A Handbook of Karachi Minerals''. The control model answers with a different title, so the answer cannot come from general ability. NPO~1 still states the gender at C0 while avoiding the name, so the fact was never removed. GradDiff~3 repeats one token before and after relearning, so nothing is recovered: its low score reflects a broken model, not removed knowledge. RMU~6 is a failure case for the metric: its answer probability recovers, but the generated answer is wrong. Recovery is broad across question types: among the flipped checkpoints, the share of recovered questions is 50--70\% for every type (names, birth, family, awards, genre, works).
 
 \subsection{SQ2: do pre-attack metrics predict recovery?}\label{sec:sq2}
 \begin{figure}[t]
@@ -375,7 +381,7 @@ RMU~6 & ``Tainty Harvey Park Conce Conce Conce [\dots]'' & ``Tae-ho Park identif
 \label{fig:pred}
 \end{figure}
 
-For high-budget relearning (seed 0), the five memorization metrics have $\rho$ between 0.00 and 0.10 with bootstrap intervals from about $-0.55$ to $0.52$ (Fig.~\ref{fig:pred}): a low score before the attack says almost nothing about whether the knowledge will return. Token entropy ($\rho=-0.74$, CI $-0.92$ to $-0.39$) and Truth Ratio ($\rho=-0.67$, CI $-0.90$ to $-0.27$) are related to recovery; checkpoints whose output distribution is far from the original model's recover more. These results hold over seeds (mean $\rho$: token entropy $-0.734\pm0.004$, Truth Ratio $-0.663\pm0.008$, memorization metrics 0.00 to 0.11) and when any one checkpoint is left out (token entropy $-0.79$ to $-0.69$; memorization metrics $-0.14$ to $0.17$). A paired bootstrap shows token entropy to be more strongly related to recovery than answer probability (difference in $|\rho|=0.70$, 95\% CI 0.04 to 0.83). At the item level (4,800 question--checkpoint pairs, 637 recovered), AUROC is 0.36--0.43 for the memorization metrics and 0.805 for token entropy. Under C2, C3 and C4 the correlations are strongly negative ($-0.58$ to $-0.88$; Fig.~\ref{fig:heat}, Appendix), which reflects damage to checkpoints that still hold the knowledge, not prediction of recovery.
+For high-budget relearning (seed 0), the five memorization metrics have $\rho$ between 0.00 and 0.10 with bootstrap intervals from about $-0.55$ to $0.52$ (Fig.~\ref{fig:pred}): a low score before the attack says almost nothing about whether the knowledge will return. Token entropy ($\rho=-0.74$, CI $-0.92$ to $-0.39$) and Truth Ratio ($\rho=-0.67$, CI $-0.90$ to $-0.27$) are related to recovery; checkpoints whose output distribution is far from the original model's recover more. These results hold over seeds (mean $\rho$: token entropy $-0.734\pm0.004$, Truth Ratio $-0.663\pm0.008$, memorization metrics 0.00 to 0.11) and when any one checkpoint is left out (token entropy $-0.79$ to $-0.69$; memorization metrics $-0.14$ to $0.17$). A paired bootstrap shows token entropy to be more strongly related to recovery than answer probability (difference in $|\rho|=0.70$, 95\% CI 0.04 to 0.83). At the item level (4,800 question--checkpoint pairs, 637 recovered), AUROC is 0.36--0.43 for the memorization metrics and 0.805 for token entropy. Under low-budget relearning, which flips no verdict, the five memorization metrics correlate positively with recovery ($\rho=+0.26$ to $+0.43$, seed~0; repository figure \texttt{figA1}): checkpoints that retain more knowledge gain more from a weak attack, the expected direction, but no checkpoint reaches the recovery threshold. Under C2, C3 and C4 the correlations are strongly negative ($-0.58$ to $-0.88$; repository figure \texttt{figA1}), which reflects damage to checkpoints that still hold the knowledge, not prediction of recovery.
 
 \subsection{SQ3: methods and configurations}
 \begin{table}[t]
@@ -400,7 +406,7 @@ Recovery is concentrated in RMU: both K-forgotten RMU checkpoints flip and three
 
 %======================================================================
 \section{Comparison with Base Papers}\label{sec:compare}
-The base papers are the studies whose conditions, checkpoints or metrics this design builds on (Table~\ref{tab:base}). This study does not propose an unlearning method, so there is no accuracy to beat; the comparison is between what the protocol finds and what the base papers report for the same question. No base unlearning method was re-implemented or retrained: the checkpoints are the OpenUnlearning releases \cite{dorna2025openunlearning}. The relearning budgets of \cite{fan2025sam,fan2025simnpo} and the rounding rule of \cite{zhang2025quant} were re-implemented in the evaluation script. Table~\ref{tab:quant} gives the numbers; values marked * are taken from the cited papers, all others are from this study.
+The base papers are the studies whose conditions, checkpoints or metrics this design builds on (Table~\ref{tab:base}). This study proposes a protocol, not an unlearning method, so there is no accuracy to beat; the comparison is between what the protocol finds and what the base papers report. No base method was re-implemented or retrained: the checkpoints are the OpenUnlearning releases \cite{dorna2025openunlearning}. The relearning budgets of \cite{fan2025sam,fan2025simnpo} and the rounding rule of \cite{zhang2025quant} were re-implemented in the evaluation script. Table~\ref{tab:quant} gives the numbers; values marked * are taken from the cited papers, all others are from this study.
 
 \begin{table*}[t]
 \caption{Summary of the base papers. * = value reported in the cited paper.}
@@ -488,19 +494,19 @@ Table~\ref{tab:abl} summarises the ablations. The two that test the interpretati
 
 \textbf{Why the protocol works.} A single score measures what a model outputs, not what its weights still encode. Relearning on unrelated authors does not supply the answers to part-B questions, so a gain on part B, larger than the control's gain, can only come from knowledge left in the weights. The disjoint split, the control subtraction and the equal recovery on parts A and B (A5) together isolate this effect.
 
-\textbf{Practical implications.} A forgetting claim based on one metric can be wrong in about one third of cases in this pool, and the metric chosen changes the verdict count from 6 to 17 (Table~\ref{tab:baseline}). Evaluations should report the verdict under a utility floor measured on both in-domain and general questions, since the two measures give 0 and 4 qualifying checkpoints, run a short relearning test on held-out items, and report output entropy, which costs no extra run.
+\textbf{Practical implications.} A forgetting claim based on one metric can be wrong in about one third of cases in this pool, and the metric chosen changes the verdict count from 6 to 17 (Table~\ref{tab:baseline}). Evaluations should report the verdict under a utility floor on both in-domain and general questions (0 and 4 qualifying checkpoints), add a short relearning test on held-out items, and report output entropy, which costs no extra run.
 
 \textbf{Was the gap addressed?} Partly. The four condition types were applied to the same checkpoints with a control, and the additional surface conditions added no failure beyond relearning (A3). Whether metrics that predict relearning recovery also predict recovery under other conditions could not be answered positively, because the other conditions produced almost no recovery. Whether OpenUnlearning's metric ranking holds across methods is answered only descriptively.
 
-\textbf{Strengths.} Paired design with a control under every condition; disjoint relearning and evaluation authors; manifest, split and thresholds fixed before the runs; stability over seeds; a bit-exact rerun (22,400 values, maximum difference 0); and agreement with OpenUnlearning's published per-question scores for the original and control models on all 400 forget10 questions (answer probability Pearson 0.992 and 0.998, mean absolute difference $\le0.009$). OpenUnlearning does not publish scores for the 24 unlearned checkpoints, so validation is limited to the reference models.
+\textbf{Strengths.} Paired design with a control under every condition; disjoint relearning and evaluation authors; manifest, split and thresholds fixed before the runs; stability over seeds; a bit-exact rerun (22,400 values, maximum difference 0); and agreement with OpenUnlearning's published per-question scores for the original and control models on all 400 forget10 questions (answer probability Pearson 0.992 and 0.998, mean absolute difference $\le0.009$). Agreement is weaker for ROUGE-L and Extraction Strength (Pearson 0.85--0.96, mean absolute difference up to 0.06), so the validation supports the probability-based metrics most strongly; it is limited to the two reference models, as OpenUnlearning publishes no scores for the 24 checkpoints.
 
 \textbf{Failure cases.} Three of the four flipped checkpoints had lost most of their retain-question utility (14\%, 17\% and 4\%); for them the low score came from general damage, not targeted removal, and relearning restored both. GradDiff~3--6 have near-zero answer probability and near-zero entropy, i.e.\ confident wrong answers, and do not recover. RMU~6 shows that a probability metric and the generated text can disagree: its answer probability recovers ($G=0.56$) while the generated answer to a gender question is wrong. In mixed prompts the forget answer scores higher when it comes first (25 of 26 models).
 
-\textbf{Limitations and threats to validity.} \emph{Internal:} utility is measured by two partial measures, not the full Model Utility, and on general-knowledge questions answer probability is near zero for every model (short reference answers), so that measure rests mainly on ROUGE-L; refusals were detected with a keyword list only; C2 uses simulated quantization with a group size chosen by the authors and damages the 1B model heavily; C4 is measured with ROUGE-L only; 180 of 200 paraphrases were checked automatically only. \emph{External:} one benchmark, one model size and 24 checkpoints from one framework; relearning uses LoRA, which may recover less than full fine-tuning. \emph{Statistical:} 13 K-forgotten checkpoints give wide intervals, checkpoints of one method are not independent, and the flip rate depends on which methods are in the pool (18.2--42.9\%). \emph{Construct:} ``genuine forgetting'' means no recovery under the tested conditions only.
+\textbf{Limitations and threats to validity.} \emph{Internal:} utility is measured by two partial measures, not the full Model Utility, and on general-knowledge questions answer probability is near zero for every model (short reference answers), so that measure rests mainly on ROUGE-L; refusals were detected by keywords only; C2 uses simulated quantization with an author-chosen group size and damages the 1B model heavily; C4 uses ROUGE-L only; 180 of 200 paraphrases were checked automatically only. \emph{External:} one benchmark, one model size and 24 checkpoints from one framework; relearning uses LoRA, which may recover less than full fine-tuning. \emph{Statistical:} 13 K-forgotten checkpoints give wide intervals, checkpoints of one method are not independent, and the flip rate depends on which methods are in the pool (18.2--42.9\%). \emph{Construct:} ``genuine forgetting'' means no recovery under the tested conditions only.
 
 %======================================================================
 \section{Conclusion and Future Work}\label{sec:conclusion}
-This study evaluated 24 released unlearned checkpoints under five conditions with a retain-only control and held-out evaluation authors. By the primary metric, 13 met the forgetting threshold; none of them kept 90\% of utility on TOFU retain questions, while four kept it on general-knowledge questions. Of the 13 that met the forgetting threshold alone, about one third lost that verdict after fine-tuning on 40 examples about other authors (4, 5 and 4 over three seeds), and the scores normally used to declare forgetting did not indicate which ones would. The four that kept general utility were overturned in only 1 of 12 seed runs. A forgetting claim based on one low score should therefore be accompanied by a relearning test at an adequate budget, a utility check and an output-entropy check. Future work should test full fine-tuning and real (not simulated) quantization, larger models, a second benchmark such as MUSE \cite{shi2025muse}, and a larger pool so that checkpoint-level AUROC can be computed.
+This study evaluated 24 released unlearned checkpoints under five conditions with a retain-only control and held-out evaluation authors. By the primary metric, 13 met the forgetting threshold; none of them kept 90\% of utility on TOFU retain questions, while four kept it on general-knowledge questions. Of the 13 that met the forgetting threshold alone, about one third lost that verdict after fine-tuning on 40 examples about other authors (4, 5 and 4 over three seeds), and the memorization scores normally used to declare forgetting did not indicate which ones would. The four that kept general utility were overturned in only 1 of 12 seed runs. A forgetting claim based on one low score should therefore be accompanied by a relearning test at an adequate budget, a utility check and an output-entropy check. Future work should test full fine-tuning and real (not simulated) quantization, larger models, a second benchmark such as MUSE \cite{shi2025muse}, and a larger pool so that checkpoint-level AUROC can be computed.
 
 %======================================================================
 \section*{Declarations and Acknowledgements}
@@ -539,23 +545,5 @@ This study evaluated 24 released unlearned checkpoints under five conditions wit
 \bibitem{tufte2001visual} E. R. Tufte, \textit{The Visual Display of Quantitative Information}, 2nd ed. Cheshire, CT, USA: Graphics Press, 2001.
 \bibitem{wong2011color} B. Wong, ``Points of view: Color blindness,'' \textit{Nature Methods}, vol. 8, no. 6, p. 441, 2011.
 \end{thebibliography}
-
-\appendix
-\section*{Supplementary Results}
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.93\columnwidth]{figures/figA1_spearman_all_conditions.pdf}
-\caption{Spearman $\rho$ between each pre-condition metric and recovery under each condition, 24 checkpoints. Diverging scale centred on zero; values printed in each cell. $^\dagger$C4 uses ROUGE-L.}
-\label{fig:heat}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.93\columnwidth]{figures/figA2_recovery_all_conditions.pdf}
-\caption{Recovery $G$ of every checkpoint under every condition (seed 0). Only C1-high produces points above the recovery line.}
-\label{fig:allG}
-\end{figure}
-
-
 
 \end{document}
